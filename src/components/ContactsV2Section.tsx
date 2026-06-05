@@ -90,8 +90,9 @@ function importContactsFromCSV(raw: string): { contacts: Contact[]; errors: stri
       continue;
     }
 
-    const priority: ContactPriority =
-      (row.priority?.charAt(0).toUpperCase() + row.priority?.slice(1).toLowerCase()) as ContactPriority || "Medium";
+    const rawPriority = row.priority || "";
+    const priorityStr = rawPriority.charAt(0).toUpperCase() + rawPriority.slice(1).toLowerCase();
+    const finalPriority: ContactPriority = ["High", "Medium", "Low"].includes(priorityStr) ? (priorityStr as ContactPriority) : "Medium";
 
     contacts.push({
       id: `cont_${Math.random().toString(36).substring(2, 10)}_${i}`,
@@ -99,26 +100,26 @@ function importContactsFromCSV(raw: string): { contacts: Contact[]; errors: stri
       email,
       role: row.role || row.job_title || row.position || "",
       location: row.location || "Remote",
-      priority: ["High", "Medium", "Low"].includes(priority) ? priority : "Medium",
+      priority: finalPriority,
       createdAt: new Date().toISOString(),
-      website: row.website || row.company_website,
-      personName: row.person_name || row.name || row.contact_name,
-      designation: row.designation || row.title,
-      linkedin: row.linkedin || row.linkedin_url,
-      industry: row.industry,
-      companySize: row.company_size || row.size,
-      careersUrl: row.careers_url || row.careers,
-      reasonForOutreach: row.reason_for_outreach || row.reason,
-      recentNews: row.recent_news || row.news,
-      techStack: row.tech_stack || row.technologies || row.stack,
-      recentHiringActivity: row.recent_hiring_activity || row.hiring_activity,
-      engineeringBlog: row.engineering_blog || row.blog,
-      founderName: row.founder_name || row.founder,
-      companyStage: row.company_stage || row.stage,
-      fundingStatus: row.funding_status || row.funding,
-      jobUrl: row.job_url || row.job_link,
-      personalNotes: row.personal_notes || row.notes,
-      recruiterName: row.person_name || row.name,
+      website: row.website || row.company_website || "",
+      personName: row.person_name || row.name || row.contact_name || "",
+      designation: row.designation || row.title || "",
+      linkedin: row.linkedin || row.linkedin_url || "",
+      industry: row.industry || "",
+      companySize: row.company_size || row.size || "",
+      careersUrl: row.careers_url || row.careers || "",
+      reasonForOutreach: row.reason_for_outreach || row.reason || "",
+      recentNews: row.recent_news || row.news || "",
+      techStack: row.tech_stack || row.technologies || row.stack || "",
+      recentHiringActivity: row.recent_hiring_activity || row.hiring_activity || "",
+      engineeringBlog: row.engineering_blog || row.blog || "",
+      founderName: row.founder_name || row.founder || "",
+      companyStage: row.company_stage || row.stage || "",
+      fundingStatus: row.funding_status || row.funding || "",
+      jobUrl: row.job_url || row.job_link || "",
+      personalNotes: row.personal_notes || row.notes || "",
+      recruiterName: row.person_name || row.name || "",
       source: "Imported CSV",
     });
   }

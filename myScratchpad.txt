@@ -1,0 +1,3 @@
+company_name,website,email,person_name,designation,role,location,priority,linkedin,industry,company_size,tech_stack,reason_for_outreach,recent_news,recent_hiring_activity,founder_name,company_stage,funding_status,job_url,personal_notes
+Acme Corp,https://acme.com,hr@acme.com,Jane Smith,Engineering Manager,Full Stack Engineer,Remote,High,https://linkedin.com/in/jsmith,SaaS,50-200,React TypeScript Node.js Firebase,Recently hiring full stack engineers,Raised Series B,Engineering team expansion,John Acme,Series B,Raised $15M,https://acme.com/jobs,Reached out on LinkedIn
+
