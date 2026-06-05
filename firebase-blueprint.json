@@ -1,0 +1,221 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Authenticated user representation",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User's verified email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's full name"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "User's profile avatar URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of profile creation"
+        }
+      },
+      "required": ["email", "displayName", "createdAt"]
+    },
+    "resume": {
+      "title": "User Resume Document",
+      "description": "Parsed and structured resume metadata with raw text",
+      "type": "object",
+      "properties": {
+        "fileName": {
+          "type": "string",
+          "description": "Original user uploaded document name"
+        },
+        "uploadedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Moment of upload"
+        },
+        "textContent": {
+          "type": "string",
+          "description": "Extracted text content from the file"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Gemini-generated summary of qualifications"
+        },
+        "skills": {
+          "type": "array",
+          "description": "Collection of extracted keywords/skills"
+        }
+      },
+      "required": ["fileName", "uploadedAt", "textContent"]
+    },
+    "contact": {
+      "title": "Recruiter Contact",
+      "description": "Record storing company recruiter contact details",
+      "type": "object",
+      "properties": {
+        "companyName": {
+          "type": "string",
+          "description": "Name of the target employer"
+        },
+        "recruiterName": {
+          "type": "string",
+          "description": "Name of the lead recruiter or point of contact"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of recruiter"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number, optional"
+        },
+        "role": {
+          "type": "string",
+          "description": "Expected job position"
+        },
+        "location": {
+          "type": "string",
+          "description": "Office location or Remote tag"
+        },
+        "source": {
+          "type": "string",
+          "description": "Listing source link or reference code"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["companyName", "recruiterName", "email", "role", "createdAt"]
+    },
+    "application": {
+      "title": "Job Outreach Application Record",
+      "description": "Durable record tracking the outreach lifecycle and scores of a lead",
+      "type": "object",
+      "properties": {
+        "contactId": {
+          "type": "string",
+          "description": "FK pointing to contacts/{contactId}"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Duplicated company name for listings"
+        },
+        "recruiterName": {
+          "type": "string",
+          "description": "Linked recruiter name"
+        },
+        "role": {
+          "type": "string",
+          "description": "Target job description details"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Not Contacted", "Draft Generated", "Sent", "Follow-Up Sent", "Replied", "Interview Scheduled", "Rejected", "Offer Received"],
+          "description": "Current state in lifecycle"
+        },
+        "matchScore": {
+          "type": "number",
+          "description": "AI-calculated align matching alignment rating"
+        },
+        "matchingSkills": {
+          "type": "array",
+          "description": "Shared skills array"
+        },
+        "missingSkills": {
+          "type": "array",
+          "description": "Skills gaps array"
+        },
+        "recommendations": {
+          "type": "array",
+          "description": "Resume tweak suggestions list"
+        },
+        "generatedSubject": {
+          "type": "string",
+          "description": "AI generated initial email subject line"
+        },
+        "generatedBody": {
+          "type": "string",
+          "description": "AI compiled proposal draft body"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Modification timestamp"
+        },
+        "timeline": {
+          "type": "array",
+          "description": "Milestones logs array"
+        }
+      },
+      "required": ["contactId", "companyName", "recruiterName", "role", "status", "createdAt", "updatedAt"]
+    },
+    "settings": {
+      "title": "User Configurations",
+      "description": "Individual user limit and follow-up settings",
+      "type": "object",
+      "properties": {
+        "dailyLimit": {
+          "type": "number",
+          "description": "Count limits allowed for sending daily mails"
+        },
+        "emailsSentToday": {
+          "type": "number",
+          "description": "Count sent dynamically today"
+        },
+        "lastResetDate": {
+          "type": "string",
+          "description": "Date format string representing current cycle"
+        },
+        "addFollowUpReminders": {
+          "type": "boolean",
+          "description": "Toggle automated reminders on/off"
+        },
+        "defaultFollowUpDays": {
+          "type": "number",
+          "description": "Standard spacing count days before follow up triggers"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update timestamp"
+        }
+      },
+      "required": ["dailyLimit", "emailsSentToday", "lastResetDate", "addFollowUpReminders", "defaultFollowUpDays", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Authenticated user database container"
+    },
+    "/users/{userId}/resumes/{resumeId}": {
+      "schema": "resume",
+      "description": "Collection of uploaded resume profiles"
+    },
+    "/users/{userId}/contacts/{contactId}": {
+      "schema": "contact",
+      "description": "Listing of recruiter contacts"
+    },
+    "/users/{userId}/applications/{applicationId}": {
+      "schema": "application",
+      "description": "Primary job outreach lifecycle trackers"
+    },
+    "/users/{userId}/settings/userSettings": {
+      "schema": "settings",
+      "description": "User specific configurations"
+    }
+  }
+}

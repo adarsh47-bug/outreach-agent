@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entities Validations helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'displayName', 'photoURL', 'createdAt'])
+        && data.keys().size() == 4
+        && data.email is string && data.email.size() <= 256
+        && data.displayName is string && data.displayName.size() <= 128
+        && data.photoURL is string && data.photoURL.size() <= 1024;
+    }
+
+    function isValidResume(data) {
+      return data.keys().hasAll(['fileName', 'textContent', 'uploadedAt', 'summary', 'skills'])
+        && data.keys().size() == 5
+        && data.fileName is string && data.fileName.size() <= 256
+        && data.textContent is string && data.textContent.size() <= 500000
+        && data.summary is string && data.summary.size() <= 10000
+        && data.skills is list && data.skills.size() <= 100
+        && (data.skills.size() == 0 || data.skills[0] is string);
+    }
+
+    function isValidContact(data) {
+      return data.keys().hasAll(['companyName', 'recruiterName', 'email', 'phone', 'role', 'location', 'source', 'createdAt'])
+        && data.keys().size() == 8
+        && data.companyName is string && data.companyName.size() <= 256
+        && data.recruiterName is string && data.recruiterName.size() <= 256
+        && data.email is string && data.email.size() <= 256
+        && data.phone is string && data.phone.size() <= 64
+        && data.role is string && data.role.size() <= 256
+        && data.location is string && data.location.size() <= 256
+        && data.source is string && data.source.size() <= 1024;
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['contactId', 'companyName', 'recruiterName', 'role', 'status', 'matchScore', 'matchingSkills', 'missingSkills', 'recommendations', 'generatedSubject', 'generatedBody', 'createdAt', 'updatedAt', 'timeline'])
+        && data.keys().size() == 14
+        && data.contactId is string && data.contactId.size() <= 128
+        && data.companyName is string && data.companyName.size() <= 256
+        && data.recruiterName is string && data.recruiterName.size() <= 256
+        && data.role is string && data.role.size() <= 256
+        && data.status is string && data.status in ['Not Contacted', 'Draft Generated', 'Sent', 'Follow-Up Sent', 'Replied', 'Interview Scheduled', 'Rejected', 'Offer Received']
+        && data.matchScore is number && data.matchScore >= 0 && data.matchScore <= 100
+        && data.matchingSkills is list && data.matchingSkills.size() <= 100
+        && data.missingSkills is list && data.missingSkills.size() <= 100
+        && data.recommendations is list && data.recommendations.size() <= 100
+        && data.generatedSubject is string && data.generatedSubject.size() <= 512
+        && data.generatedBody is string && data.generatedBody.size() <= 20000
+        && data.timeline is list && data.timeline.size() <= 50;
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['dailyLimit', 'emailsSentToday', 'lastResetDate', 'addFollowUpReminders', 'defaultFollowUpDays', 'updatedAt'])
+        && data.keys().size() == 6
+        && data.dailyLimit is number && data.dailyLimit >= 0 && data.dailyLimit <= 25
+        && data.emailsSentToday is number && data.emailsSentToday >= 0 && data.emailsSentToday <= 25
+        && data.lastResetDate is string && data.lastResetDate.size() <= 32
+        && data.addFollowUpReminders is bool
+        && data.defaultFollowUpDays is number && data.defaultFollowUpDays >= 1 && data.defaultFollowUpDays <= 90;
+    }
+
+    // Rules matching individual partitions
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if false; // Deny user profile deletion via direct Web SDK for safety
+
+      // Resumes Collection
+      match /resumes/{resumeId} {
+        allow list, get: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(resumeId) && isValidResume(incoming()) && incoming().uploadedAt == request.time;
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(resumeId) && isValidResume(incoming()) && incoming().uploadedAt == existing().uploadedAt;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(resumeId);
+      }
+
+      // Contacts Collection
+      match /contacts/{contactId} {
+        allow list, get: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(contactId) && isValidContact(incoming()) && incoming().createdAt == request.time;
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(contactId) && isValidContact(incoming()) && incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(contactId);
+      }
+
+      // Applications Collection (Primary Tracing Engine)
+      match /applications/{applicationId} {
+        allow list, get: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(applicationId) && isValidApplication(incoming()) && incoming().createdAt == request.time && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(applicationId) && isValidApplication(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(applicationId);
+      }
+
+      // Settings doc
+      match /settings/{settingId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(settingId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(settingId) && isValidSettings(incoming()) && incoming().updatedAt == request.time;
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(settingId) && isValidSettings(incoming()) && incoming().updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+  }
+}
