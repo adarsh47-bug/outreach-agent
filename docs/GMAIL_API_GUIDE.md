@@ -15,27 +15,27 @@ Requested at sign-in via `GoogleAuthProvider.addScope()`:
 | `https://www.googleapis.com/auth/drive.file` | Access files created by the app (future: resume attachment) |
 | `https://www.googleapis.com/auth/calendar.events` | Create calendar events (future: interview scheduling) |
 
-The access token is:
-- Stored in React state (`googleToken` in `useAuth.ts`)
-- Never written to Firestore or localStorage
-- Passed to the server in the request body as `accessToken`
-- Never logged server-side
+The access tokens are:
+- Stored securely in Firestore under `users/{uid}/settings/authTokens`
+- Kept strictly server-side and never exposed to the client bundle
+- Accompanied by a `refreshToken` to allow 24/7 background operation
 
 ---
 
-## 2. OAuth Flow
+## 2. Server-Side OAuth Flow
 
 ```
-User clicks "Sign in with Google"
+User clicks "Connect Gmail" in Settings
   ↓
-Firebase signInWithPopup(GoogleAuthProvider)
-  + scopes: gmail.send, gmail.compose, drive.file, calendar.events
+GET /api/auth/google/url?uid={uid}
   ↓
 Google consent screen shown
   ↓
-On success: credential.accessToken → stored in React state
+User authorizes, Google redirects to /api/auth/google/callback
   ↓
-Token passed per-request to POST /api/gmail/send
+Server exchanges code for `accessToken` + `refreshToken`
+  ↓
+Tokens saved to Firestore `users/{uid}/settings/authTokens`
 ```
 
 ---
@@ -43,11 +43,18 @@ Token passed per-request to POST /api/gmail/send
 ## 3. Send Flow (server-side)
 
 ```ts
-// server/routes/gmail.ts
+// server/services/campaignScheduler.ts
 import { google } from "googleapis";
 
-const oauth2Client = new google.auth.OAuth2();
-oauth2Client.setCredentials({ access_token: accessToken });
+// Retrieve tokens from Firestore
+const tokenDoc = await db.doc(`users/${uid}/settings/authTokens`).get();
+const { accessToken, refreshToken } = tokenDoc.data();
+
+const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
+oauth2Client.setCredentials({ 
+  access_token: accessToken,
+  refresh_token: refreshToken
+});
 
 const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 ```
@@ -131,8 +138,13 @@ Staying within these limits means:
 
 ---
 
-## 6. Token Refresh
+## 6. Token Refresh & Autonomous Operation
 
-Firebase Google Sign-In tokens expire after ~1 hour. The current implementation requires re-sign-in to refresh. The Settings section shows whether Gmail is connected and which scopes are active.
+The system handles token expiration entirely autonomously via the background scheduler:
 
-**Planned:** Automatic token refresh using `google.auth.OAuth2` `refresh_token` — requires the app to be published and verified by Google.
+1. Before dispatching any scheduled email, the scheduler inspects the `expiresAt` timestamp in Firestore.
+2. If the token is expired (or expires within 2 minutes), the scheduler invokes `oauth2Client.refreshAccessToken()`.
+3. The new `accessToken` and updated `expiresAt` are immediately written back to Firestore.
+4. The email is subsequently dispatched.
+
+This `refresh_token` architecture guarantees the system can run uninterrupted for days or months without requiring the user to keep the browser tab open or re-authenticate.

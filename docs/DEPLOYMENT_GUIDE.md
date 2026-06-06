@@ -31,13 +31,15 @@ npm run start
 ### Prerequisites
 - Google Cloud project with Cloud Run enabled
 - `gcloud` CLI authenticated
-- Gemini API key stored in Secret Manager
+- `GEMINI_API_KEY`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` stored in Secret Manager
 
 ### Steps
 
-#### 1. Store secret
+#### 1. Store secrets
 ```bash
-gcloud secrets create GEMINI_API_KEY --data-file=- <<< "your-key-here"
+gcloud secrets create GEMINI_API_KEY --data-file=- <<< "your-gemini-key"
+gcloud secrets create GOOGLE_CLIENT_ID --data-file=- <<< "your-google-client-id"
+gcloud secrets create GOOGLE_CLIENT_SECRET --data-file=- <<< "your-google-client-secret"
 ```
 
 #### 2. Build Docker image
@@ -72,7 +74,7 @@ gcloud run deploy outreach-agent \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest \
+  --set-secrets GEMINI_API_KEY=GEMINI_API_KEY:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest \
   --set-env-vars PORT=3000
 ```
 
@@ -92,8 +94,10 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 VITE_FIREBASE_DATABASE_ID=...
 
-# Server-side only (set as Cloud Run secret)
+# Server-side only (set as Cloud Run secrets)
 GEMINI_API_KEY=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
 ---

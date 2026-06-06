@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * App.tsx — V3 Personal AI Outreach Agent
- * Sidebar layout with 7 navigation sections.
+ * Sidebar layout with 7 navigation sections + global connection health bar.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useFirestoreSync } from "./hooks/useFirestoreSync";
+import { useConnectionHealth } from "./hooks/useConnectionHealth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Sidebar, { NavSection } from "./components/Sidebar";
+import ConnectionStatusBar from "./components/ConnectionStatusBar";
 
 // Section components
 import DashboardSection from "./components/DashboardSection";
@@ -24,11 +26,29 @@ import SettingsSection from "./components/SettingsSection";
 export default function App() {
   const [activeSection, setActiveSection] = useState<NavSection>("dashboard");
 
-  // Auth
-  const { user, googleToken, setGoogleToken, handleSignIn, handleSignOut } = useAuth();
+  // Auth — includes persistent token + status
+  const {
+    user,
+    googleToken,
+    setGoogleToken,
+    tokenStatus,
+    tokenExpiresAt,
+    handleSignIn,
+    handleConnectGmail,
+    handleSignOut,
+    handleForceRefresh,
+  } = useAuth();
 
   // Firestore sync — all collections
   const store = useFirestoreSync(user);
+
+  // Connection health monitor
+  const health = useConnectionHealth({
+    tokenStatus,
+    tokenExpiresAt,
+    googleToken,
+    pollIntervalMs: 60_000,
+  });
 
   // Sidebar badge counts
   const badges: Partial<Record<NavSection, number>> = {
@@ -49,8 +69,7 @@ export default function App() {
   };
 
   // Handler: email generated (for any standalone compose)
-  const handleEmailGenerated = async (contactId: string, subject: string, body: string) => {
-    // Update existing application record with generated email
+  const handleEmailGenerated = async (contactId: string, subject: string, _body: string) => {
     const existing = store.applications.find((a) => a.contactId === contactId);
     if (existing) {
       await store.handleUpdateApplicationStatus(existing.id, existing.status, `Email generated: ${subject}`);
@@ -71,6 +90,14 @@ export default function App() {
 
       {/* Main content area */}
       <main className="main-content">
+        {/* Connection Status Bar — always visible at the top */}
+        <ConnectionStatusBar
+          health={health}
+          user={user}
+          onForceRefresh={handleForceRefresh}
+          onConnectGmail={handleConnectGmail}
+        />
+
         {/* Page content */}
         <div className="flex-1 p-6 max-w-[1400px] w-full mx-auto">
           <ErrorBoundary>
@@ -82,6 +109,7 @@ export default function App() {
                 campaigns={store.campaigns}
                 contacts={store.contacts}
                 emailQueue={store.emailQueue}
+                health={health}
                 onNavigate={(section) => setActiveSection(section as NavSection)}
                 onStartCampaign={() => setActiveSection("campaigns")}
               />
@@ -126,7 +154,7 @@ export default function App() {
                 onEmailGenerated={handleEmailGenerated}
                 onQueueItemCreated={store.handleAddEmailQueueItem}
                 onApplicationUpsert={store.handleUpsertApplication}
-                onSignIn={handleSignIn}
+                onConnectGmail={handleConnectGmail}
               />
             )}
 
@@ -148,7 +176,7 @@ export default function App() {
                 userEmail={user?.email || undefined}
                 googleToken={googleToken}
                 onSaveReport={store.handleSaveReport}
-                onSignIn={handleSignIn}
+                onConnectGmail={handleConnectGmail}
               />
             )}
 
@@ -158,9 +186,12 @@ export default function App() {
                 settings={store.settings}
                 userEmail={user?.email || undefined}
                 googleToken={googleToken}
+                tokenStatus={tokenStatus}
+                tokenExpiresAt={tokenExpiresAt}
                 onUpdateSettings={store.handleUpdateSettings}
-                onSignIn={handleSignIn}
+                onConnectGmail={handleConnectGmail}
                 onSignOut={handleSignOut}
+                onForceRefresh={handleForceRefresh}
               />
             )}
 

@@ -16,7 +16,8 @@ All collections live under `/users/{userId}/` to enforce per-user isolation via 
   ├── companyResearch/{researchId}
   ├── generatedEmails/{emailId}
   ├── reports/{reportId}
-  └── settings/userSettings          ← single document, not a collection
+  ├── settings/userSettings          ← single document
+  └── settings/authTokens            ← single document
 ```
 
 ---
@@ -250,6 +251,19 @@ Single document per user at `/users/{userId}/settings/userSettings`.
 | `minDelayMinutes` | number | 120 | Minimum delay between emails |
 | `maxDelayMinutes` | number | 240 | Maximum delay between emails |
 | `updatedAt` | string (ISO) | — | Last settings update |
+
+---
+
+## 10. `settings/authTokens`
+
+Single document per user at `/users/{userId}/settings/authTokens`. Stores backend OAuth tokens for the background scheduler.
+
+| Field | Type | Description |
+|---|---|---|
+| `accessToken` | string | Google OAuth 2.0 access token |
+| `refreshToken` | string | Google OAuth 2.0 refresh token |
+| `expiresAt` | string (ISO) | Token expiration timestamp |
+| `updatedAt` | string (ISO) | Last token refresh timestamp |
 
 ---
 

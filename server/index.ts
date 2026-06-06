@@ -15,10 +15,20 @@ import gmailRoutes from "./routes/gmail.js";
 import scraperRoutes from "./routes/scraper.js";
 import campaignRoutes from "./routes/campaign.js";
 import reportsRoutes from "./routes/reports.js";
+import schedulerRoutes from "./routes/scheduler.js";
+import authRoutes from "./routes/auth.js";
+import { startScheduler } from "./services/campaignScheduler.js";
 
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: config.maxUploadSize }));
+
+  // Set COOP and COEP headers for Firebase Auth
+  app.use((_req, res, next) => {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    next();
+  });
 
   // Register API routes
   app.use(healthRoutes);
@@ -29,6 +39,8 @@ async function startServer() {
   app.use(scraperRoutes);
   app.use(campaignRoutes);
   app.use(reportsRoutes);
+  app.use(schedulerRoutes);
+  app.use(authRoutes);
 
   // Vite integration (dev) or static serving (prod)
   if (!config.isProd) {
@@ -49,6 +61,8 @@ async function startServer() {
   // Start listening
   const server = app.listen(config.port, "0.0.0.0", () => {
     console.log(`🚀 Outreach Agent V3 running at http://localhost:${config.port}`);
+    // Start autonomous background campaign scheduler
+    startScheduler();
   });
 
   server.on("error", (err: NodeJS.ErrnoException) => {

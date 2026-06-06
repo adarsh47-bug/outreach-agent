@@ -17,7 +17,7 @@ Outreach Agent V3 is a **Full Stack (Vite + React client + Node/Express server)*
 graph TD
   User((Adarsh))
   ReactApp["React SPA (Vite)\nSidebar + 7 Sections"]
-  ServerProxy["Express Server (tsx)\n8 Route Modules"]
+  ServerProxy["Express Server (tsx)\n9 Route Modules\n(including Auth)"]
   FBAuth[(Firebase Auth)]
   FirestoreDB[(Cloud Firestore\n9 Collections)]
   GeminiAPI(Google Gemini API)
@@ -25,11 +25,13 @@ graph TD
 
   User ==>|Interacts| ReactApp
   ReactApp ==>|Google Sign-In| FBAuth
-  FBAuth -->|JWT + OAuth Token| ReactApp
+  FBAuth -->|JWT for App| ReactApp
   ReactApp -->|Real-time sync| FirestoreDB
   ReactApp -->|API calls| ServerProxy
+  User ==>|Connect Gmail| ServerProxy
+  ServerProxy -->|Server-Side OAuth| GmailAPI
+  ServerProxy -->|Write Tokens| FirestoreDB
   ServerProxy -->|GEMINI_API_KEY secured| GeminiAPI
-  ServerProxy -->|User OAuth token| GmailAPI
   GeminiAPI -->|JSON responses| ServerProxy
   GmailAPI -->|Message IDs| ServerProxy
   ServerProxy -->|Results| ReactApp
@@ -71,6 +73,8 @@ App.tsx
 ```
 server/index.ts
 ├── GET  /api/health
+├── GET  /api/auth/google/url       ← Server-side OAuth Consent URL
+├── GET  /api/auth/google/callback  ← Server-side OAuth Token Exchange
 ├── POST /api/resume/analyze
 ├── POST /api/resume/parse-document
 ├── POST /api/campaign/create
@@ -89,17 +93,26 @@ server/index.ts
 
 ## 5. Sequence Diagrams
 
-### A. Google Sign-In
+### A. App Authentication & Gmail Agent Authorization
 ```mermaid
 sequenceDiagram
   autonumber
+  Note over User,Firestore: Phase 1: App Authentication (Firebase)
   User->>ReactApp: Click "Sign in with Google"
   ReactApp->>Firebase: signInWithPopup(GoogleAuthProvider)
-  Note over ReactApp,Firebase: Scopes: gmail.send, gmail.compose, drive.file, calendar.events
-  Firebase-->>ReactApp: Firebase User + credential.accessToken
-  ReactApp->>ReactApp: setUser(firebaseUser), setGoogleToken(accessToken)
+  Firebase-->>ReactApp: Firebase User Authenticated
   ReactApp->>Firestore: Update /users/{uid} (email, displayName)
   ReactApp-->>User: Sidebar shows user avatar
+
+  Note over User,Firestore: Phase 2: Gmail Agent Authorization (Server-Side)
+  User->>ReactApp: Click "Connect Gmail" (Settings)
+  ReactApp->>Server: GET /api/auth/google/url
+  Server-->>User: Redirect to Google Consent Screen
+  User->>Google: Authorizes permissions (gmail.send, etc)
+  Google->>Server: GET /api/auth/google/callback?code=...
+  Server->>Google: Exchange code for accessToken + refreshToken
+  Server->>Firestore: Save Tokens to users/{uid}/settings/authTokens
+  Server-->>ReactApp: Redirect back to Dashboard
 ```
 
 ### B. Campaign Launch (5 Steps)

@@ -49,13 +49,15 @@ For `VITE_FIREBASE_DATABASE_ID`: use `(default)` unless you created a named data
 ## 4. Configure OAuth for Gmail
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
-2. Find the OAuth 2.0 Client ID for your Firebase project
-3. Add authorized origins: `http://localhost:3000`
-4. Add authorized redirect URIs: your Firebase auth domain (`xxx.firebaseapp.com/__/auth/handler`)
+2. Click **Create Credentials** → **OAuth client ID**
+3. Select **Web application** as the application type.
+4. Add authorized origins: `http://localhost:3000`
+5. Add authorized redirect URIs: `http://localhost:3000/api/auth/google/callback`
+6. Copy the generated **Client ID** and **Client Secret**. Add them to your `.env` file as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 
-5. Enable these APIs in the Cloud Console:
+7. Enable these APIs in the Cloud Console:
    - **Gmail API** (for sending emails)
-   - **Google Drive API** (for drive.file scope)
+   - **Google Calendar API** (for calendar events)
 
 ---
 
@@ -106,4 +108,5 @@ Run the app and check:
 - [ ] Sign in with Google popup appears and succeeds
 - [ ] Sidebar shows user avatar / email
 - [ ] Uploading a resume writes to Firestore (`resumes` collection visible in Firebase Console)
-- [ ] Settings page shows "Gmail Connected" with green checkmark after sign-in
+- [ ] In Settings, clicking "Connect Gmail" correctly redirects to Google, asks for permissions, and redirects back.
+- [ ] Settings page shows "Connected" and token expiry time after successful Gmail connection.

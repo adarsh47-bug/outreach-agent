@@ -8,11 +8,43 @@ Full reference for all backend endpoints in the Outreach Agent V3 Express server
 
 ## Authentication
 
-Google OAuth access token is passed in request bodies where required (e.g. Gmail send). All Firestore writes happen client-side via Firebase SDK with rules enforcing `request.auth.uid` isolation.
+1. **Client-Side:** Firebase Google Sign-In handles UI authentication.
+2. **Server-Side:** `/api/auth/google/url` provides the OAuth consent screen for the background Gmail agent.
+
+Google OAuth access tokens and refresh tokens are securely stored in Firestore (`users/{uid}/settings/authTokens`) and retrieved internally by the background scheduler.
 
 ---
 
 ## Endpoints
+
+---
+
+### `GET /api/auth/google/url`
+
+Generates the Google OAuth consent screen URL to authorize the backend agent to send emails.
+
+**Query Parameters:**
+- `uid` (required): The Firebase user ID to associate the tokens with.
+
+**Response:**
+```json
+{
+  "url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=...&redirect_uri=..."
+}
+```
+
+---
+
+### `GET /api/auth/google/callback`
+
+Google OAuth callback handler. Exchanges the authorization code for `accessToken` and `refreshToken` and saves them to Firestore.
+
+**Query Parameters:**
+- `code` (required): The authorization code returned by Google.
+- `state` (required): Contains the user's `uid`.
+
+**Response:**
+Redirects to the frontend URL (e.g., `http://localhost:3000`) upon success.
 
 ---
 

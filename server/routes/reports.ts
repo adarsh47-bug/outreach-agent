@@ -5,6 +5,7 @@ import { Router } from "express";
 import { Type } from "@google/genai";
 import { getAI } from "../services/gemini.js";
 import { config } from "../config.js";
+import { getISTDateString, todayISTDateString } from "../utils/date.js";
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.post("/api/reports/generate", async (req, res) => {
 
     const ai = getAI();
 
-    const reportDate = date || new Date().toISOString().split("T")[0];
+    const reportDate = date || todayISTDateString();
 
     const prompt = `You are an AI recruitment assistant generating a daily outreach performance summary for Adarsh, a Full Stack Engineer (React, TypeScript, Node.js, Firebase, Gemini AI).
 
@@ -112,9 +113,9 @@ Keep it under 200 words, professional but human.`;
     const d = req.body;
     res.json({
       success: true,
-      date: d.date || new Date().toISOString().split("T")[0],
+      date: d.date || todayISTDateString(),
       report: {
-        subject: `Outreach Daily Report — ${d.date || new Date().toLocaleDateString()}`,
+        subject: `Outreach Daily Report — ${d.date || todayISTDateString()}`,
         body: `Daily Summary:\n\nEmails Sent: ${d.emailsSent || 0}\nReplies: ${d.replies || 0}\nInterviews: ${d.interviews || 0}\nFollow-Ups: ${d.followUpsSent || 0}\n\nKeep going — consistency is key!`,
         highlights: [`${d.emailsSent || 0} emails sent today`, `${d.replies || 0} replies received`],
         tomorrowFocus: [],

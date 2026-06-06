@@ -22,15 +22,15 @@ A personal AI recruiter assistant with one objective: maximize interview booking
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Express Server (tsx)                          │
 │  Routes: campaign, outreach, reports, resume, gmail, scraper    │
-│  Services: gemini.ts (API key sequestered), document-parser.ts  │
+│  Services: gemini.ts (AI), campaignScheduler.ts (Background)    │
 └───────────┬─────────────────────────────┬───────────────────────┘
-            │ Gemini SDK                  │ Gmail API
+            │ Gemini SDK                  │ Gmail API (OAuth2)
             ▼                             ▼
 ┌───────────────────┐          ┌──────────────────────┐
 │  Google Gemini    │          │  Gmail API           │
-│  (server-side     │          │  (user OAuth token)  │
-│   API key only)   │          └──────────────────────┘
-└───────────────────┘
+│  (server-side     │          │  (Server-Side OAuth  │
+│   API key only)   │          │   with Refresh Token)│
+└───────────────────┘          └──────────────────────┘
 
 React SPA ←──── Firebase SDK (client-side) ────→ Cloud Firestore
                  Auth: Firebase Google Sign-In
@@ -60,11 +60,18 @@ React SPA ←──── Firebase SDK (client-side) ────→ Cloud Fires
 
 ### A. Authentication Flow
 ```
-User → "Sign in with Google" → Firebase Auth (signInWithPopup)
-     → GoogleAuthProvider with scopes:
-         gmail.send · gmail.compose · drive.file · calendar.events
-     → credential.accessToken stored in React state (not persisted)
+1. App Authentication:
+   User → "Sign in with Google" → Firebase Auth (signInWithPopup)
+     → Authenticates user to access the React App and Firestore
      → Firebase user.uid used for all Firestore collection paths
+
+2. Gmail Agent Authorization:
+   User → Settings → "Connect Gmail" 
+     → Redirects to backend /api/auth/google/url
+     → Google consent screen shown (scopes: gmail.send, gmail.compose)
+     → Redirects to backend /api/auth/google/callback
+     → Server saves `accessToken` + `refreshToken` to Firestore
+     → Background scheduler uses these tokens autonomously
 ```
 
 ### B. Campaign Launch (5-Step Orchestration)
@@ -221,7 +228,7 @@ Maximum score: 100
 ## 8. Security Model
 
 - **Gemini API Key** — server-side only, never in client bundle
-- **Google OAuth Token** — stored in React state only, not persisted, expires after session
+- **Google OAuth Tokens** — `accessToken` and `refreshToken` are stored securely in Firestore `users/{userId}/settings/authTokens`. They are never exposed to the client browser.
 - **Firestore Rules** — all reads/writes gated by `request.auth.uid == userId`
 - **No credentials in logs** — tokens never logged server-side
 

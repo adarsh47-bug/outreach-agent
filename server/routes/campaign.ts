@@ -5,7 +5,9 @@
 import { Router } from "express";
 import { Type } from "@google/genai";
 import { getAI } from "../services/gemini.js";
+import { getAdminDb, getAdminFieldValue } from "../services/firebaseAdmin.js";
 import { config } from "../config.js";
+import { getISTDateString, getISTDate, setISTTime, addDays } from "../utils/date.js";
 
 const router = Router();
 
@@ -239,7 +241,7 @@ Keep it practical and actionable, under 200 words.`;
     res.json({
       success: true,
       research: JSON.parse(output.trim()),
-      enrichedAt: new Date().toISOString(),
+      enrichedAt: getISTDateString(),
     });
   } catch (error: any) {
     console.error("Enrich contact error:", error);
@@ -253,7 +255,7 @@ Keep it practical and actionable, under 200 words.`;
         talkingPoints: [],
         engineeringFocus: req.body?.contact?.role || "",
       },
-      enrichedAt: new Date().toISOString(),
+      enrichedAt: getISTDateString(),
       _fallbackActive: true,
     });
   }
@@ -272,6 +274,9 @@ router.post("/api/campaign/build-queue", async (req, res) => {
       startDate,
       minDelay = 120,
       maxDelay = 240,
+      sendingDays = "weekdays",
+      sendingWindowStart = "09:00",
+      sendingWindowEnd = "18:00",
     } = req.body;
 
     if (!contactCount || contactCount < 1) {
@@ -282,11 +287,27 @@ router.post("/api/campaign/build-queue", async (req, res) => {
     const slots: string[] = [];
     const startTs = startDate ? new Date(startDate) : new Date();
 
-    // Move to next weekday if needed
-    function nextWeekday(d: Date): Date {
-      const day = d.getDay();
-      if (day === 0) d.setDate(d.getDate() + 1); // Sunday → Monday
-      if (day === 6) d.setDate(d.getDate() + 2); // Saturday → Monday
+    // Parse window start and end times (e.g. "09:00", "18:00")
+    const [startH, startM] = sendingWindowStart.split(":").map(Number);
+    const [endH, endM] = sendingWindowEnd.split(":").map(Number);
+    const windowStartMins = (startH || 9) * 60 + (startM || 0);
+    const windowEndMins = (endH || 18) * 60 + (endM || 0);
+
+    // Move to next valid sending day if needed
+    function nextValidDay(d: Date): Date {
+      while (true) {
+        const istDate = getISTDate(d);
+        const day = istDate.getUTCDay(); // 0 = Sunday, 6 = Saturday
+        const isWeekend = day === 0 || day === 6;
+
+        if (sendingDays === "weekdays" && isWeekend) {
+          d = addDays(d, 1);
+        } else if (sendingDays === "weekends" && !isWeekend) {
+          d = addDays(d, 1);
+        } else {
+          break; // It's a valid day
+        }
+      }
       return d;
     }
 
@@ -294,35 +315,38 @@ router.post("/api/campaign/build-queue", async (req, res) => {
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    let current = nextWeekday(new Date(startTs));
-    // Start at 09:00 IST (09:00 local, representing sending window start)
-    current.setHours(9, Math.floor(Math.random() * 30), 0, 0); // 09:00–09:30 first email
+    let current = nextValidDay(new Date(startTs));
+    // Start at sendingWindowStart
+    setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
 
     let todayCount = 0;
+    const nowMs = Date.now();
 
     for (let i = 0; i < Math.min(contactCount, 500); i++) {
-      // Check if within sending window (09:00–18:00)
-      const hour = current.getHours();
-      const minute = current.getMinutes();
-      const totalMinutes = hour * 60 + minute;
+      // Check if within sending window
+      const currentIST = getISTDate(current);
+      let hour = currentIST.getUTCHours();
+      let minute = currentIST.getUTCMinutes();
+      let totalMinutes = hour * 60 + minute;
 
-      if (totalMinutes > 18 * 60) {
-        // Past 18:00 — move to next weekday 09:00–09:30
-        current.setDate(current.getDate() + 1);
-        current = nextWeekday(current);
-        current.setHours(9, Math.floor(Math.random() * 30), 0, 0);
+      // If past the window end, OR the current generated time is in the past, move to next valid day
+      if (totalMinutes > windowEndMins || current.getTime() < nowMs) {
+        // Move to next valid day
+        current = addDays(current, 1);
+        current = nextValidDay(current);
+        setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
         todayCount = 0;
       }
 
       if (todayCount >= dailyLimit) {
-        // Hit daily limit — move to next weekday
-        current.setDate(current.getDate() + 1);
-        current = nextWeekday(current);
-        current.setHours(9, Math.floor(Math.random() * 30), 0, 0);
+        // Hit daily limit — move to next valid day
+        current = addDays(current, 1);
+        current = nextValidDay(current);
+        setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
         todayCount = 0;
       }
 
-      slots.push(current.toISOString());
+      slots.push(getISTDateString(current));
       todayCount++;
 
       // Add random delay for next email
@@ -341,5 +365,246 @@ router.post("/api/campaign/build-queue", async (req, res) => {
     res.status(500).json({ error: error?.message || "Failed to build email queue." });
   }
 });
+
+/**
+ * POST /api/campaign/launch
+ * Orchestrates the campaign launch in the background.
+ */
+router.post("/api/campaign/launch", async (req, res) => {
+  try {
+    const { userId, campaign, resume, contacts, settings } = req.body;
+
+    if (!userId || !campaign || !resume || !contacts || !settings) {
+      res.status(400).json({ error: "Missing required fields." });
+      return;
+    }
+
+    // Immediately respond to the client
+    res.status(202).json({ success: true, message: "Campaign launch started in background." });
+
+    // Start background process
+    launchBackgroundWorker(userId, campaign, resume, contacts, settings).catch((err) => {
+      console.error(`[Background Launch Error] Campaign ${campaign.id}:`, err);
+    });
+  } catch (error: any) {
+    console.error("Launch campaign error:", error);
+    res.status(500).json({ error: error?.message || "Failed to start campaign launch." });
+  }
+});
+
+async function launchBackgroundWorker(userId: string, campaign: any, resume: any, contacts: any[], settings: any) {
+  const db = await getAdminDb();
+  const campaignRef = db.doc(`users/${userId}/campaigns/${campaign.id}`);
+  const port = process.env.PORT || 3000;
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const setProgress = async (step: number, label: string, progress: number, complete = false, error?: string) => {
+    await campaignRef.set(
+      {
+        launchProgress: { step, label, progress, complete, error: error || null },
+        status: complete && !error ? "Running" : error ? "Paused" : "Draft",
+      },
+      { merge: true }
+    );
+  };
+
+  try {
+    await setProgress(1, "Analyzing resume and extracting skills...", 10);
+
+    // 1. Parse Resume
+    const resumeRes = await fetch(`${baseUrl}/api/resume/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: resume.textContent }),
+    });
+    if (!resumeRes.ok) {
+      const errText = await resumeRes.text();
+      console.error(`[LaunchWorker] /api/resume/analyze failed: ${resumeRes.status} ${errText}`);
+      throw new Error(`Failed to analyze resume: ${resumeRes.status} - ${errText}`);
+    }
+    const resumeData = await resumeRes.json();
+    const resumeSummary = resumeData.summary;
+    const resumeSkills = resumeData.skills || [];
+
+    await setProgress(2, `Enriching ${contacts.length} companies with AI...`, 20);
+
+    // 2. Enrich Contacts
+    const enrichedResearch: Record<string, any> = {};
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+      const pct = 20 + Math.round((i / contacts.length) * 25);
+      await setProgress(2, `Researching ${contact.companyName}...`, pct);
+
+      const enrichRes = await fetch(`${baseUrl}/api/campaign/enrich-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact }),
+      });
+      if (enrichRes.ok) {
+        const data = await enrichRes.json();
+        if (data.success && data.research) {
+          enrichedResearch[contact.id] = data.research;
+          // Save to contact
+          await db.doc(`users/${userId}/contacts/${contact.id}`).set(
+            { outreachResearch: data.research, updatedAt: getISTDateString() },
+            { merge: true }
+          );
+        }
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    await setProgress(3, "Scoring contacts by outreach opportunity...", 48);
+
+    // 3. Score Contacts
+    const scores: Record<string, number> = {};
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+      const pct = 48 + Math.round((i / contacts.length) * 12);
+      await setProgress(3, `Scoring ${contact.companyName}...`, pct);
+
+      const scoreRes = await fetch(`${baseUrl}/api/campaign/score-contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact, resumeSkills }),
+      });
+      if (scoreRes.ok) {
+        const data = await scoreRes.json();
+        if (data.success) {
+          scores[contact.id] = data.score;
+          await db.doc(`users/${userId}/contacts/${contact.id}`).set(
+            { outreachScore: data.score, outreachScoreBreakdown: data.breakdown, updatedAt: getISTDateString() },
+            { merge: true }
+          );
+        }
+      } else {
+        scores[contact.id] = 50;
+      }
+    }
+
+    const sortedContacts = [...contacts].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
+
+    await setProgress(4, `Generating emails for ${sortedContacts.length} contacts...`, 62);
+
+    // 4. Generate Emails and Applications
+    const generatedEmails: Record<string, { subject: string; body: string }> = {};
+    for (let i = 0; i < sortedContacts.length; i++) {
+      const contact = sortedContacts[i];
+      const research = enrichedResearch[contact.id];
+      const pct = 62 + Math.round((i / sortedContacts.length) * 23);
+      await setProgress(4, `Writing email for ${contact.companyName}...`, pct);
+
+      let email = { subject: "", body: "" };
+      const emailRes = await fetch(`${baseUrl}/api/outreach/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeSummary,
+          jobDetails: contact.role || "Software Engineer opportunity",
+          recruiterName: contact.personName || contact.recruiterName || contact.founderName || "Hiring Team",
+          emailType: "application",
+          candidateName: "Adarsh",
+          matchingSkills: resumeSkills.slice(0, 6),
+          companyName: contact.companyName,
+          techStack: contact.techStack || (research?.techStack || []).join(", "),
+          recentNews: contact.recentNews,
+          reasonForOutreach: contact.reasonForOutreach,
+          founderName: contact.founderName,
+          companyStage: contact.companyStage,
+          recentHiringActivity: contact.recentHiringActivity,
+          engineeringFocus: research?.engineeringFocus,
+          talkingPoints: research?.talkingPoints || [],
+          personalNotes: contact.personalNotes,
+          outreachScore: scores[contact.id],
+        }),
+      });
+
+      if (emailRes.ok) {
+        email = await emailRes.json();
+      } else {
+        email = {
+          subject: `Full Stack Engineer Opportunity at ${contact.companyName}`,
+          body: `Hi ${contact.personName || "there"},\n\nI'm Adarsh, a Full Stack Engineer with expertise in React, TypeScript, Node.js, and Firebase. I noticed ${contact.companyName} is looking for ${contact.role || "engineering talent"} and wanted to reach out.\n\nI'd love to explore if my background aligns with what you're building. Would you be open to a 15-minute call?\n\nBest,\nAdarsh`,
+        };
+      }
+
+      generatedEmails[contact.id] = email;
+
+      await db.doc(`users/${userId}/applications/${contact.id}`).set(
+        {
+          contactId: contact.id,
+          campaignId: campaign.id,
+          companyName: contact.companyName,
+          recruiterName: contact.personName || contact.recruiterName || "Hiring Team",
+          role: contact.role || "Software Engineer",
+          status: "Queued",
+          outreachScore: scores[contact.id],
+          generatedSubject: email.subject,
+          generatedBody: email.body,
+          updatedAt: getISTDateString(),
+          // Use arrayUnion to safely initialize or add to timeline
+          timeline: getAdminFieldValue().arrayUnion({
+            status: "Queued",
+            note: "Email generated and added to dispatch queue",
+            timestamp: getISTDateString(),
+          }),
+        },
+        { merge: true }
+      );
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    await setProgress(5, "Building autonomous dispatch schedule...", 85);
+
+    // 5. Build Queue
+    const queueRes = await fetch(`${baseUrl}/api/campaign/build-queue`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contactCount: sortedContacts.length,
+        dailyLimit: campaign.dailyLimit || settings.dailyLimit,
+        minDelay: campaign.schedulerSettings?.minDelayMinutes || settings.minDelayMinutes,
+        maxDelay: campaign.schedulerSettings?.maxDelayMinutes || settings.maxDelayMinutes,
+        sendingDays: campaign.schedulerSettings?.sendingDays || settings.sendingDays || "weekdays",
+        sendingWindowStart: campaign.schedulerSettings?.sendingWindowStart || settings.sendingWindowStart || "09:00",
+        sendingWindowEnd: campaign.schedulerSettings?.sendingWindowEnd || settings.sendingWindowEnd || "18:00",
+      }),
+    });
+    if (!queueRes.ok) throw new Error("Failed to build queue");
+    const queueData = await queueRes.json();
+    const slots = queueData.slots;
+
+    const batch = db.batch();
+    for (let i = 0; i < sortedContacts.length; i++) {
+      const contact = sortedContacts[i];
+      const email = generatedEmails[contact.id];
+      const qRef = db.collection(`users/${userId}/emailQueue`).doc();
+      batch.set(qRef, {
+        campaignId: campaign.id,
+        contactId: contact.id,
+        companyName: contact.companyName,
+        recipientEmail: contact.email,
+        scheduledAt: slots[i] || slots[slots.length - 1],
+        status: "Pending",
+        subject: email.subject,
+        body: email.body,
+        attemptNumber: 1,
+        createdAt: getISTDateString(),
+      });
+    }
+
+    await batch.commit();
+
+    await setProgress(5, "Campaign launched successfully!", 100, true);
+  } catch (err: any) {
+    await setProgress(
+      5,
+      "Failed to launch campaign",
+      0,
+      true,
+      err.message || "An unexpected error occurred"
+    );
+  }
+}
 
 export default router;

@@ -14,25 +14,35 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  Zap,
+  Database,
+  Wifi,
 } from "lucide-react";
-import { UserSettings } from "../types";
+import { UserSettings, SendingDays } from "../types";
+import type { TokenStatus } from "../hooks/useAuth";
 
 interface SettingsSectionProps {
   settings: UserSettings | null;
   userEmail?: string;
   googleToken: string;
+  tokenStatus?: TokenStatus;
+  tokenExpiresAt?: Date | null;
   onUpdateSettings: (updates: Partial<UserSettings>) => Promise<void>;
-  onSignIn: () => void;
+  onConnectGmail: () => void;
   onSignOut: () => void;
+  onForceRefresh?: () => void;
 }
 
 export default function SettingsSection({
   settings,
   userEmail,
   googleToken,
+  tokenStatus = "missing",
+  tokenExpiresAt,
   onUpdateSettings,
-  onSignIn,
+  onConnectGmail,
   onSignOut,
+  onForceRefresh,
 }: SettingsSectionProps) {
   const defaults = settings || {
     dailyLimit: 10,
@@ -55,6 +65,11 @@ export default function SettingsSection({
   const [archiveDays, setArchiveDays] = useState(defaults.archiveDays);
   const [minDelay, setMinDelay] = useState(defaults.minDelayMinutes);
   const [maxDelay, setMaxDelay] = useState(defaults.maxDelayMinutes);
+  const [sendingDays, setSendingDays] = useState<SendingDays>(
+    (defaults as UserSettings & { sendingDays?: SendingDays }).sendingDays ?? "weekdays"
+  );
+  const [sendingWindowStart, setSendingWindowStart] = useState(defaults.sendingWindowStart);
+  const [sendingWindowEnd, setSendingWindowEnd] = useState(defaults.sendingWindowEnd);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -69,6 +84,9 @@ export default function SettingsSection({
         archiveDays,
         minDelayMinutes: minDelay,
         maxDelayMinutes: maxDelay,
+        sendingDays,
+        sendingWindowStart,
+        sendingWindowEnd,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -125,7 +143,101 @@ export default function SettingsSection({
         </button>
       </div>
 
-      {/* Gmail Connection */}
+      {/* Connection Status */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-indigo-600" />
+            Connection Status
+          </h2>
+          <span className="text-xs text-slate-400">Required for autonomous operation</span>
+        </div>
+        <div className="card-body space-y-3">
+          {/* Gmail */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                googleToken && tokenStatus === "valid" ? "bg-green-100" :
+                tokenStatus === "expiring_soon" ? "bg-amber-100" : "bg-red-100"
+              }`}>
+                <Mail className={`w-4 h-4 ${
+                  googleToken && tokenStatus === "valid" ? "text-green-600" :
+                  tokenStatus === "expiring_soon" ? "text-amber-600" : "text-red-600"
+                }`} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Gmail (OAuth)</p>
+                <p className="text-xs text-slate-500">
+                  {googleToken && tokenStatus === "valid"
+                    ? `Connected${tokenExpiresAt ? ` · expires in ${Math.max(0, Math.floor((tokenExpiresAt.getTime() - Date.now()) / 60_000))}m` : ""}`
+                    : tokenStatus === "expiring_soon"
+                    ? "Token expiring soon — refresh recommended"
+                    : "Not connected"}
+                </p>
+              </div>
+            </div>
+            {tokenStatus === "valid" && googleToken ? (
+              <div className="flex items-center gap-2">
+                {onForceRefresh && (
+                  <button
+                    onClick={onForceRefresh}
+                    id="settings-refresh-token-btn"
+                    className="btn-secondary text-xs"
+                    title="Refresh Gmail token"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Refresh
+                  </button>
+                )}
+                <button
+                  onClick={onSignOut}
+                  className="btn-secondary text-xs"
+                  id="settings-signout-btn"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={tokenStatus === "expiring_soon" && onForceRefresh ? onForceRefresh : onConnectGmail}
+                className="btn-primary text-xs"
+                id="settings-signin-btn"
+              >
+                {tokenStatus === "expiring_soon" ? "Refresh Token" : "Connect Gmail"}
+              </button>
+            )}
+          </div>
+
+          {/* Firebase */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <Database className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800">Firebase Firestore</p>
+              <p className="text-xs text-slate-500">Real-time sync active · campaigns, contacts, queue</p>
+            </div>
+            <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+          </div>
+
+          {/* Scheduler */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-100 bg-indigo-50">
+            <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center flex-shrink-0">
+              <Wifi className="w-4 h-4 text-indigo-700" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Background Scheduler</p>
+              <p className="text-xs text-slate-500">Dispatches emails every 60s · respects sending window & daily limit</p>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-slate-400">
+            Keep the server running (<span className="font-mono">npm run dev</span>) for autonomous campaign dispatch. Gmail token auto-refreshes every 50 minutes.
+          </p>
+        </div>
+      </div>
+
+      {/* Gmail Connection (legacy — retained for sign-in/out) */}
       <div className="card">
         <div className="card-header">
           <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
@@ -164,7 +276,7 @@ export default function SettingsSection({
                 <p className="text-xs text-slate-500">Connect to enable email sending</p>
               </div>
               <button
-                onClick={onSignIn}
+                onClick={onConnectGmail}
                 className="btn-primary text-xs ml-auto"
                 id="settings-signin-btn"
               >
@@ -235,14 +347,56 @@ export default function SettingsSection({
           </h2>
         </div>
         <div className="card-body space-y-5">
-          {/* Sending window — fixed, shown as info */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
-            <p className="text-xs font-bold text-indigo-700 mb-1">Sending Window (Fixed)</p>
-            <p className="text-sm font-semibold text-indigo-900">
-              09:00 AM → 06:00 PM, Weekdays only
-            </p>
-            <p className="text-[10px] text-indigo-500 mt-1">
-              Emails are only sent during business hours for maximum deliverability.
+          {/* Sending window */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Window Start</label>
+              <input
+                id="settings-window-start"
+                type="time"
+                value={sendingWindowStart}
+                onChange={(e) => setSendingWindowStart(e.target.value)}
+                className="input-field"
+              />
+            </div>
+            <div>
+              <label className="label">Window End</label>
+              <input
+                id="settings-window-end"
+                type="time"
+                value={sendingWindowEnd}
+                onChange={(e) => setSendingWindowEnd(e.target.value)}
+                className="input-field"
+              />
+            </div>
+          </div>
+
+          {/* Sending Days */}
+          <div>
+            <label className="label">Sending Days (Default for all campaigns)</label>
+            <div className="grid grid-cols-3 gap-2 mt-1">
+              {([
+                { value: "weekdays", label: "Weekdays", sub: "Mon – Fri" },
+                { value: "full_week", label: "Full Week", sub: "Mon – Sun" },
+                { value: "weekends", label: "Weekends", sub: "Sat – Sun" },
+              ] as { value: SendingDays; label: string; sub: string }[]).map((opt) => (
+                <button
+                  key={opt.value}
+                  id={`settings-days-${opt.value}`}
+                  onClick={() => setSendingDays(opt.value)}
+                  className={`flex flex-col items-center justify-center gap-0.5 p-3 rounded-xl border-2 text-xs font-semibold transition-all ${
+                    sendingDays === opt.value
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  <span className="text-[10px] font-normal opacity-70">{opt.sub}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-2">
+              Emails are only dispatched on the selected days. Individual campaigns can override this.
             </p>
           </div>
 

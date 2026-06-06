@@ -20,8 +20,10 @@ import {
   BarChart3,
   X,
   AlertCircle,
+  Clock,
+  ChevronDown,
 } from "lucide-react";
-import { Campaign, Contact, ResumeProfile, EmailQueueItem, Application, UserSettings, CompanyResearch } from "../types";
+import { Campaign, Contact, ResumeProfile, EmailQueueItem, Application, UserSettings, CompanyResearch, CampaignSchedulerSettings, SendingDays } from "../types";
 import { useCampaign, CampaignLaunchProgress } from "../hooks/useCampaign";
 
 interface CampaignsSectionProps {
@@ -40,7 +42,7 @@ interface CampaignsSectionProps {
   onEmailGenerated: (contactId: string, subject: string, body: string) => Promise<void>;
   onQueueItemCreated: (item: EmailQueueItem) => Promise<void>;
   onApplicationUpsert: (app: Partial<Application> & { contactId: string }) => Promise<string>;
-  onSignIn: () => void;
+  onConnectGmail: () => void;
 }
 
 const STEPS = [
@@ -99,7 +101,7 @@ export default function CampaignsSection({
   onEmailGenerated,
   onQueueItemCreated,
   onApplicationUpsert,
-  onSignIn,
+  onConnectGmail,
 }: CampaignsSectionProps) {
   const [showBuilder, setShowBuilder] = useState(false);
   const [activeLaunchId, setActiveLaunchId] = useState<string | null>(null);
@@ -112,7 +114,28 @@ export default function CampaignsSection({
   const [followUpEnabled, setFollowUpEnabled] = useState(true);
   const [contactFilter, setContactFilter] = useState("");
 
-  const { launching, launchProgress, launchCampaign, cancelLaunch } = useCampaign();
+  // Per-campaign scheduler overrides — pre-filled from global settings
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [schedSendingDays, setSchedSendingDays] = useState<SendingDays>(
+    (settings as (UserSettings & { sendingDays?: SendingDays }) | null)?.sendingDays ?? "weekdays"
+  );
+  const [schedWindowStart, setSchedWindowStart] = useState(
+    settings?.sendingWindowStart ?? "09:00"
+  );
+  const [schedWindowEnd, setSchedWindowEnd] = useState(
+    settings?.sendingWindowEnd ?? "18:00"
+  );
+  const [schedMinDelay, setSchedMinDelay] = useState(
+    settings?.minDelayMinutes ?? 120
+  );
+  const [schedMaxDelay, setSchedMaxDelay] = useState(
+    settings?.maxDelayMinutes ?? 240
+  );
+
+  const { launching, launchProgress: localLaunchProgress, launchCampaign, cancelLaunch } = useCampaign();
+
+  const activeCampaign = useMemo(() => campaigns.find(c => c.id === activeLaunchId), [campaigns, activeLaunchId]);
+  const launchProgress = activeCampaign?.launchProgress || localLaunchProgress;
 
   const filteredContactsForBuilder = useMemo(() => {
     const q = contactFilter.toLowerCase();
@@ -126,6 +149,14 @@ export default function CampaignsSection({
   const handleCreate = async () => {
     if (!campaignName.trim() || selectedContactIds.length === 0 || !selectedResumeId) return;
 
+    const schedulerSettings: CampaignSchedulerSettings = {
+      sendingWindowStart: schedWindowStart,
+      sendingWindowEnd: schedWindowEnd,
+      minDelayMinutes: schedMinDelay,
+      maxDelayMinutes: schedMaxDelay,
+      sendingDays: schedSendingDays,
+    };
+
     const campId = "camp_" + Math.random().toString(36).substring(2, 10);
     const campaign: Campaign = {
       id: campId,
@@ -137,6 +168,7 @@ export default function CampaignsSection({
       contactIds: selectedContactIds,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      schedulerSettings,
       stats: {
         total: selectedContactIds.length,
         queued: 0,
@@ -151,6 +183,7 @@ export default function CampaignsSection({
     setShowBuilder(false);
     setCampaignName("");
     setSelectedContactIds([]);
+    setShowScheduler(false);
   };
 
   const handleLaunch = async (campaign: Campaign) => {
@@ -186,9 +219,11 @@ export default function CampaignsSection({
 
   const getCampaignQueueStats = (campaignId: string) => {
     const items = emailQueue.filter((q) => q.campaignId === campaignId);
+    const pendingItems = items.filter((q) => q.status === "Pending").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
     return {
-      pending: items.filter((q) => q.status === "Pending").length,
+      pending: pendingItems.length,
       sent: items.filter((q) => q.status === "Sent").length,
+      nextScheduledAt: pendingItems.length > 0 ? pendingItems[0].scheduledAt : null
     };
   };
 
@@ -235,7 +270,7 @@ export default function CampaignsSection({
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>
             Connect Google to send emails.{" "}
-            <button onClick={onSignIn} className="font-semibold underline">Sign in →</button>
+            <button onClick={onConnectGmail} className="font-semibold underline">Connect Google →</button>
           </span>
         </div>
       )}
@@ -392,6 +427,122 @@ export default function CampaignsSection({
               </div>
             </div>
 
+            {/* Scheduler Settings (collapsible) */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                id="campaign-scheduler-toggle"
+                type="button"
+                onClick={() => setShowScheduler((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Clock className="w-4 h-4 text-indigo-500" />
+                  Scheduler Settings
+                  <span className="text-[10px] font-normal text-slate-400 ml-1">(overrides global defaults for this campaign)</span>
+                </span>
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                    showScheduler ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {showScheduler && (
+                <div className="px-4 py-4 space-y-4 border-t border-slate-100">
+                  {/* Sending Days */}
+                  <div>
+                    <label className="label">Sending Days</label>
+                    <div className="grid grid-cols-3 gap-2 mt-1">
+                      {([
+                        { value: "weekdays", label: "Weekdays", sub: "Mon – Fri" },
+                        { value: "full_week", label: "Full Week", sub: "Mon – Sun" },
+                        { value: "weekends", label: "Weekends", sub: "Sat – Sun" },
+                      ] as { value: SendingDays; label: string; sub: string }[]).map((opt) => (
+                        <button
+                          key={opt.value}
+                          id={`campaign-days-${opt.value}`}
+                          type="button"
+                          onClick={() => setSchedSendingDays(opt.value)}
+                          className={`flex flex-col items-center justify-center gap-0.5 p-3 rounded-xl border-2 text-xs font-semibold transition-all ${
+                            schedSendingDays === opt.value
+                              ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                              : "border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          <span className="text-[10px] font-normal opacity-70">{opt.sub}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sending Window */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Window Start</label>
+                      <input
+                        id="campaign-window-start"
+                        type="time"
+                        value={schedWindowStart}
+                        onChange={(e) => setSchedWindowStart(e.target.value)}
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Window End</label>
+                      <input
+                        id="campaign-window-end"
+                        type="time"
+                        value={schedWindowEnd}
+                        onChange={(e) => setSchedWindowEnd(e.target.value)}
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Delay between emails */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Min Delay (min)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="campaign-min-delay"
+                          type="range"
+                          min={60}
+                          max={180}
+                          step={10}
+                          value={schedMinDelay}
+                          onChange={(e) => setSchedMinDelay(Number(e.target.value))}
+                          className="flex-1 accent-indigo-600"
+                        />
+                        <span className="text-xs font-bold text-slate-700 w-8 text-right">{schedMinDelay}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="label">Max Delay (min)</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="campaign-max-delay"
+                          type="range"
+                          min={120}
+                          max={360}
+                          step={10}
+                          value={schedMaxDelay}
+                          onChange={(e) => setSchedMaxDelay(Number(e.target.value))}
+                          className="flex-1 accent-indigo-600"
+                        />
+                        <span className="text-xs font-bold text-slate-700 w-8 text-right">{schedMaxDelay}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400">
+                    These settings apply only to this campaign. Leave the panel collapsed to use global defaults.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Create button */}
             <div className="flex gap-2 pt-2">
               <button
@@ -455,16 +606,22 @@ export default function CampaignsSection({
             </div>
 
             {launchProgress.error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {launchProgress.error}
+              <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {launchProgress.error}
+                </div>
+                <button onClick={() => setActiveLaunchId(null)} className="btn-secondary py-1 px-2 text-xs">Dismiss</button>
               </div>
             )}
 
             {launchProgress.complete && !launchProgress.error && (
-              <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                Campaign is live! Emails will be sent on schedule.
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                  Campaign is live! Emails will be sent on schedule.
+                </div>
+                <button onClick={() => setActiveLaunchId(null)} className="btn-secondary py-1 px-2 text-xs">Dismiss</button>
               </div>
             )}
           </div>
@@ -517,7 +674,19 @@ export default function CampaignsSection({
                           {campaign.stats.sent} sent · {campaign.stats.replies} replies · {campaign.stats.interviews} interviews
                         </span>
                         <span>{formatDate(campaign.createdAt)}</span>
+                        {campaign.schedulerSettings && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full border border-indigo-100 font-semibold">
+                            <Clock className="w-3 h-3" />
+                            {campaign.schedulerSettings.sendingDays === "weekdays"
+                              ? "Weekdays"
+                              : campaign.schedulerSettings.sendingDays === "weekends"
+                              ? "Weekends"
+                              : "Full Week"}{" "}
+                            · {campaign.schedulerSettings.sendingWindowStart}–{campaign.schedulerSettings.sendingWindowEnd}
+                          </span>
+                        )}
                       </div>
+
 
                       {/* Progress bar */}
                       {(campaign.status === "Running" || campaign.stats.sent > 0) && (
@@ -527,7 +696,16 @@ export default function CampaignsSection({
                           </div>
                           <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400 font-mono">
                             <span>{sentPct}% sent · {queueStats.pending} pending</span>
-                            <span>Daily limit: {campaign.dailyLimit}/day</span>
+                            <span>
+                              {queueStats.nextScheduledAt
+                                ? `Next: ${new Date(queueStats.nextScheduledAt).toLocaleString("en-IN", {
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}`
+                                : `Limit: ${campaign.dailyLimit}/day`}
+                            </span>
                           </div>
                         </div>
                       )}

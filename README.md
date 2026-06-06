@@ -4,6 +4,8 @@
 
 A fully automated outreach platform built with **React + TypeScript**, **Express**, **Google Gemini**, **Firebase Firestore**, and **Vite**. One goal: book interviews.
 
+**This is the "Outreach Agent"** where you simply fill in your data and start the campaign—the rest is handled completely automatically as per best industry standards.
+
 ---
 
 ## 🎯 What This Does
@@ -39,6 +41,7 @@ A fully automated outreach platform built with **React + TypeScript**, **Express
 | **Reply Classification** | Gemini detects: Positive, Interview Request, Assessment, Rejection, Out of Office |
 | **Daily Reports** | AI-generated daily summary with metrics, highlights, top opportunities |
 | **Settings** | Gmail status, daily limit, scheduler delays, follow-up timeline visualizer |
+| **Background Processing** | The agent runs autonomously inside your Node.js backend. The scheduler wakes up every 60s, silently refreshes expired Google OAuth tokens, and dispatches campaigns exactly on schedule, even when the UI is completely closed. |
 
 ---
 
@@ -122,6 +125,10 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_DATABASE_ID=
+
+# Server-Side Google OAuth (from Google Cloud Console > APIs & Services > Credentials)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 ```
 
 ### 3. Run the development server
@@ -138,13 +145,14 @@ Visit → `http://localhost:3000`
 
 ```
 1. Open http://localhost:3000
-2. Click "Sign in with Google" in the sidebar
-3. Go to Resume → upload your resume PDF or DOCX
-4. Go to Contacts → click "Template" to download the CSV template
-5. Fill in your contacts and import via "Import CSV"
-6. Go to Campaigns → click "New Campaign" → select resume + contacts → Launch
-7. Monitor in Pipeline view (Kanban or List)
-8. Go to Reports → Generate your first daily AI summary
+2. Click "Sign in with Google" in the sidebar to authenticate with Firebase
+3. Go to **Settings** and click **Connect Gmail** to authorize the backend agent to send emails autonomously
+4. Go to Resume → upload your resume PDF or DOCX
+5. Go to Contacts → click "Template" to download the CSV template
+6. Fill in your contacts and import via "Import CSV"
+7. Go to Campaigns → click "New Campaign" → select resume + contacts → Launch
+8. Monitor in Pipeline view (Kanban or List)
+9. Go to Reports → Generate your first daily AI summary
 ```
 
 ---
@@ -155,6 +163,8 @@ Visit → `http://localhost:3000`
 |---|---|---|
 | `PORT` | No | Server port (default: `3000`) |
 | `GEMINI_API_KEY` | **Yes** | Google Gemini API key |
+| `GOOGLE_CLIENT_ID` | **Yes** | OAuth 2.0 Web Client ID for Gmail integration |
+| `GOOGLE_CLIENT_SECRET` | **Yes** | OAuth 2.0 Web Client Secret |
 | `VITE_FIREBASE_API_KEY` | **Yes** | Firebase project API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | **Yes** | Firebase auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | **Yes** | Firebase project ID |
@@ -204,7 +214,8 @@ npm run clean    # Delete build artifacts
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
 2. Enable **Firestore** and **Google Authentication**
 3. Copy credentials to `.env`
-4. Gmail OAuth scopes required: `gmail.send`, `gmail.compose`, `drive.file`, `calendar.events`
+4. **Google Cloud Console:** Create an OAuth 2.0 Web Client ID, add your local redirect URI (e.g. `http://localhost:3000/api/auth/google/callback`), and copy the `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env`.
+5. **CRITICAL:** Ensure your Google Account's Email, Google Drive, and Firebase Database are always connected. The background agent handles automatic token refreshing.
 
 Firestore collections used:
 `resumes` · `contacts` · `campaigns` · `applications` · `emailQueue` · `companyResearch` · `generatedEmails` · `reports` · `settings`

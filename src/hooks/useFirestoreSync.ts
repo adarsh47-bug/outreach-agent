@@ -94,18 +94,26 @@ interface UseFirestoreSyncReturn {
   handleClearAllData: () => void;
 }
 
-/** Convert Firestore timestamp fields safely to ISO string. */
+import { getISTDateString } from "../utils/date";
+
+/** Convert Firestore timestamp fields safely to IST string. */
 function toISOString(val: any): string {
   if (val && typeof val.toDate === "function") {
-    return val.toDate().toISOString();
+    return getISTDateString(val.toDate());
   }
-  return val || new Date().toISOString();
+  if (val) {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return getISTDateString(d);
+    }
+  }
+  return getISTDateString();
 }
 
 const DEFAULT_SETTINGS: UserSettings = {
   dailyLimit: 10,
   emailsSentToday: 0,
-  lastResetDate: new Date().toISOString().split("T")[0],
+  lastResetDate: getISTDateString().split("T")[0],
   addFollowUpReminders: true,
   defaultFollowUpDays: 5,
   followUp2Days: 7,
@@ -114,7 +122,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   sendingWindowEnd: "18:00",
   minDelayMinutes: 120,
   maxDelayMinutes: 240,
-  updatedAt: new Date().toISOString(),
+  sendingDays: "weekdays",
+  updatedAt: getISTDateString(),
 };
 
 export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
@@ -298,6 +307,15 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             createdAt: toISOString(data.createdAt),
             updatedAt: toISOString(data.updatedAt),
             stats: data.stats || { total: 0, queued: 0, sent: 0, replies: 0, interviews: 0, followUpsSent: 0 },
+            schedulerSettings: data.schedulerSettings
+              ? {
+                  sendingWindowStart: data.schedulerSettings.sendingWindowStart ?? "09:00",
+                  sendingWindowEnd: data.schedulerSettings.sendingWindowEnd ?? "18:00",
+                  minDelayMinutes: data.schedulerSettings.minDelayMinutes ?? 120,
+                  maxDelayMinutes: data.schedulerSettings.maxDelayMinutes ?? 240,
+                  sendingDays: data.schedulerSettings.sendingDays ?? "weekdays",
+                }
+              : undefined,
           });
         });
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -395,7 +413,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
           setSettings({
             dailyLimit: data.dailyLimit ?? 10,
             emailsSentToday: data.emailsSentToday ?? 0,
-            lastResetDate: data.lastResetDate ?? new Date().toISOString().split("T")[0],
+            lastResetDate: data.lastResetDate ?? getISTDateString().split("T")[0],
             addFollowUpReminders: data.addFollowUpReminders !== false,
             defaultFollowUpDays: data.defaultFollowUpDays ?? 5,
             followUp2Days: data.followUp2Days ?? 7,
@@ -404,6 +422,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             sendingWindowEnd: data.sendingWindowEnd ?? "18:00",
             minDelayMinutes: data.minDelayMinutes ?? 120,
             maxDelayMinutes: data.maxDelayMinutes ?? 240,
+            sendingDays: data.sendingDays ?? "weekdays",
             updatedAt: toISOString(data.updatedAt),
           });
         } else {
@@ -534,7 +553,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             ...(existingApp.timeline || []),
             {
               status: appData.status || existingApp.status,
-              timestamp: new Date().toISOString(),
+              timestamp: getISTDateString(),
               note: `Updated application record`,
             },
           ],
@@ -561,7 +580,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
           generatedSubject: appData.generatedSubject || "",
           generatedBody: appData.generatedBody || "",
           timeline: [
-            { status: appData.status || "Unreached", timestamp: new Date().toISOString(), note: "Application created" },
+            { status: appData.status || "Unreached", timestamp: getISTDateString(), note: "Application created" },
           ],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
@@ -603,7 +622,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             ...existingApp.timeline,
             {
               status: existingApp.status,
-              timestamp: new Date().toISOString(),
+              timestamp: getISTDateString(),
               note: `Match analysis: ${result.score}% alignment`,
             },
           ],
@@ -626,7 +645,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
           recommendations: result.recommendations,
           generatedSubject: "",
           generatedBody: "",
-          timeline: [{ status: "Unreached", timestamp: new Date().toISOString(), note: "Application Pipeline Created" }],
+          timeline: [{ status: "Unreached", timestamp: getISTDateString(), note: "Application Pipeline Created" }],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }).catch((err) =>
@@ -657,7 +676,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
         updatedAt: serverTimestamp(),
         timeline: [
           ...existingApp.timeline,
-          { status: targetStatus, timestamp: new Date().toISOString(), note },
+          { status: targetStatus, timestamp: getISTDateString(), note },
         ],
       }).catch((err) =>
         handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/applications/${existingApp.id}`)
@@ -680,7 +699,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
         updatedAt: serverTimestamp(),
         timeline: [
           ...existingApp.timeline,
-          { status: newStatus, timestamp: new Date().toISOString(), note },
+          { status: newStatus, timestamp: getISTDateString(), note },
         ],
       }).catch((err) =>
         handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/applications/${appId}`)
@@ -708,6 +727,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
       const { id, createdAt, updatedAt, ...rest } = campaign;
       await setDoc(docRef, {
         ...rest,
+        schedulerSettings: rest.schedulerSettings ?? null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }).catch((err) =>

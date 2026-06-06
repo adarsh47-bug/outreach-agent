@@ -18,6 +18,7 @@ import {
   Check, 
 } from "lucide-react";
 import { Contact, ResumeProfile, Application } from "../types";
+import { getISTDateString } from "../utils/date";
 
 interface ComposeSectionProps {
   contacts: Contact[];
@@ -297,7 +298,7 @@ export default function ComposeSection({
           const oneWeek = new Date();
           oneWeek.setDate(oneWeek.getDate() + 7);
           oneWeek.setHours(10, 0, 0, 0);
-          setCalendarDate(oneWeek.toISOString().substring(0, 16));
+          setCalendarDate(getISTDateString(oneWeek).substring(0, 16));
         }
       } catch (error: any) {
         console.error(error);
@@ -329,10 +330,10 @@ export default function ComposeSection({
           summary: calendarTitle,
           description: calendarDescription,
           start: {
-            dateTime: startDateTime.toISOString(),
+            dateTime: getISTDateString(startDateTime),
           },
           end: {
-            dateTime: endDateTime.toISOString(),
+            dateTime: getISTDateString(endDateTime),
           },
         }),
       });
@@ -648,7 +649,7 @@ export default function ComposeSection({
                   const oneWeek = new Date();
                   oneWeek.setDate(oneWeek.getDate() + 7);
                   oneWeek.setHours(10, 0, 0, 0);
-                  setCalendarDate(oneWeek.toISOString().substring(0, 16));
+                  setCalendarDate(getISTDateString(oneWeek).substring(0, 16));
                 }
               }}
               className="text-[11px] text-indigo-700 font-semibold hover:text-indigo-850 underline cursor-pointer"

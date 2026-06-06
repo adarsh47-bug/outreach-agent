@@ -95,6 +95,17 @@ export interface CompanyResearch {
 
 export type CampaignStatus = "Draft" | "Running" | "Paused" | "Complete";
 
+export type SendingDays = "full_week" | "weekdays" | "weekends";
+
+/** Per-campaign scheduler overrides — optional, falls back to global settings if omitted. */
+export interface CampaignSchedulerSettings {
+  sendingWindowStart: string; // "HH:MM"
+  sendingWindowEnd: string;   // "HH:MM"
+  minDelayMinutes: number;
+  maxDelayMinutes: number;
+  sendingDays: SendingDays;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -113,11 +124,16 @@ export interface Campaign {
     interviews: number;
     followUpsSent: number;
   };
+  /** Optional per-campaign scheduler overrides */
+  schedulerSettings?: CampaignSchedulerSettings;
   // Step progress during launch
   launchProgress?: {
     step: number; // 1-5
     label: string;
+    progress: number;
     complete: boolean;
+    error?: string | null;
+    detail?: string;
   };
 }
 
@@ -232,6 +248,7 @@ export interface UserSettings {
   sendingWindowEnd: string; // "18:00"
   minDelayMinutes: number; // 120
   maxDelayMinutes: number; // 240
+  sendingDays: SendingDays; // "weekdays"
   updatedAt: string;
 }
 

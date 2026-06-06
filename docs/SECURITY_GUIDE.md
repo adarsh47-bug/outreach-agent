@@ -8,13 +8,13 @@
 - Never logged in any server route
 - The Gemini SDK singleton is initialized in `server/services/gemini.ts` and only accessible within the Express process
 
-### Google OAuth Access Token
-- Obtained via `credential.accessToken` from `signInWithPopup` result
-- Stored **only** in React component state (`useState("")` in `useAuth.ts`)
-- Never written to Firestore, localStorage, or sessionStorage
-- Sent to the server as a request body field on `POST /api/gmail/send` only
-- Never logged server-side
-- Expires after ~1 hour (Firebase session)
+### Google OAuth Tokens
+- Obtained via server-side OAuth flow (`/api/auth/google/callback`)
+- Stored **securely in Firestore** under `users/{uid}/settings/authTokens`
+- The `refreshToken` allows the background scheduler to run autonomously
+- Never exposed to the client bundle or React state
+- Sent by the background scheduler to the Gmail API for dispatch
+- Server-side Firestore operations bypass Firebase Security Rules but isolate data programmatically via `uid`
 
 ### Firebase Config Keys
 - These are `VITE_FIREBASE_*` variables — they are public by design (Firebase security enforced via rules, not key secrecy)
@@ -72,10 +72,10 @@ if (!text || typeof text !== "string") {
 
 ## 4. Gmail Sending Security
 
-- The server receives the OAuth token per-request and uses it only for that request
-- The token is not stored, cached, or logged
+- The server accesses the OAuth tokens directly from Firestore via Firebase Admin SDK
+- The tokens are used internally by the background scheduler to refresh access and dispatch emails
 - MIME message encoding happens server-side using Node.js `Buffer` — no third-party email libraries
-- Only `gmail.send` and `gmail.compose` scopes are requested — the app cannot read or delete Gmail messages
+- Only `gmail.send`, `gmail.compose`, `drive.file`, and `calendar.events` scopes are requested
 
 ---
 
@@ -108,6 +108,8 @@ The application stores only what is needed:
 ```bash
 # Never commit these to git:
 GEMINI_API_KEY=...           # Server-only
+GOOGLE_CLIENT_ID=...         # Server-only
+GOOGLE_CLIENT_SECRET=...     # Server-only
 
 # Safe to include in Firebase app config (but keep .env out of git):
 VITE_FIREBASE_API_KEY=...

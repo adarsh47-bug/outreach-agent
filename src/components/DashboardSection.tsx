@@ -16,14 +16,19 @@ import {
   Zap,
   ChevronRight,
   ArrowUpRight,
+  CheckCircle2,
+  Database,
+  AlertCircle,
 } from "lucide-react";
 import { Application, Campaign, Contact, EmailQueueItem } from "../types";
+import type { ConnectionHealth } from "../hooks/useConnectionHealth";
 
 interface DashboardSectionProps {
   applications: Application[];
   campaigns: Campaign[];
   contacts: Contact[];
   emailQueue: EmailQueueItem[];
+  health: ConnectionHealth;
   onNavigate: (section: string) => void;
   onStartCampaign: () => void;
 }
@@ -74,6 +79,7 @@ export default function DashboardSection({
   campaigns,
   contacts,
   emailQueue,
+  health,
   onNavigate,
   onStartCampaign,
 }: DashboardSectionProps) {
@@ -267,6 +273,65 @@ export default function DashboardSection({
           color="#ef4444"
           onClick={() => onNavigate("contacts")}
         />
+      </div>
+
+      {/* Scheduler Engine Widget */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-indigo-600" />
+            Scheduler Engine
+            <span className="text-[10px] font-normal text-slate-400">(autonomous background dispatch)</span>
+          </h2>
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+              health.schedulerRunning
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}
+          >
+            <span className={`status-dot ${health.schedulerRunning ? "running" : "pending"}`} style={{ width: 6, height: 6 }} />
+            {health.schedulerRunning ? "Running" : "Idle"}
+          </span>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-indigo-50 rounded-xl">
+              <p className="text-xl font-extrabold text-indigo-700 font-display">{health.emailsSentToday}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Emails sent today</p>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl">
+              <p className="text-sm font-bold text-slate-700">
+                {health.schedulerLastTick
+                  ? new Date(health.schedulerLastTick).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                  : "—"}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Last tick</p>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl">
+              <p className="text-sm font-bold text-slate-700">
+                {health.schedulerNextEmail
+                  ? new Date(health.schedulerNextEmail).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                  : "None queued"}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Next email</p>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center justify-center gap-1">
+                {health.firebaseOk ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                )}
+                <Database className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1">Firestore {health.firebaseOk ? "live" : "offline"}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-3">
+            The scheduler automatically sends queued emails, triggers follow-ups at Day {health.schedulerRunning ? "5 & 7" : "—"}, and archives non-responders — all without the browser open.
+          </p>
+        </div>
       </div>
 
       {/* Active Campaigns */}

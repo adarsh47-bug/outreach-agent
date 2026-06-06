@@ -57,6 +57,8 @@
 - [x] Auto-skips weekends and respects daily limits
 
 ### Gmail Integration
+- [x] Server-Side OAuth 2.0 flow (`/api/auth/google/url`)
+- [x] Background scheduler with autonomous token refresh
 - [x] Send via `POST /api/gmail/send` (Gmail OAuth)
 - [x] Store `gmailMessageId` in emailQueue + application
 - [x] Draft creation mode (`draftOnly: true`)

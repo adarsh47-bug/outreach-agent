@@ -27,7 +27,7 @@ interface ReportsSectionProps {
   userEmail?: string;
   googleToken: string;
   onSaveReport: (report: DailyReport) => Promise<void>;
-  onSignIn: () => void;
+  onConnectGmail: () => void;
 }
 
 export default function ReportsSection({
@@ -37,7 +37,7 @@ export default function ReportsSection({
   userEmail,
   googleToken,
   onSaveReport,
-  onSignIn,
+  onConnectGmail,
 }: ReportsSectionProps) {
   const [generating, setGenerating] = useState(false);
   const [latestReport, setLatestReport] = useState<{
