@@ -11,7 +11,7 @@ router.get("/api/auth/google/url", (req, res) => {
     return;
   }
 
-  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   if (!clientId) {
     res.status(500).json({ error: "GOOGLE_CLIENT_ID not configured" });
     return;
@@ -48,8 +48,8 @@ router.get("/api/auth/google/callback", async (req, res) => {
   }
 
   const uid = state;
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   
   const protocol = req.protocol || "http";
   const host = req.get("host") || "localhost:3000";

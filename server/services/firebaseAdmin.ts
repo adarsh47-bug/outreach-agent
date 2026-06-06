@@ -40,23 +40,36 @@ export async function getAdminDb() {
 
     if (getApps().length === 0) {
       const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      let credsLoaded = false;
 
       if (credPath) {
-        // Service account JSON path provided
-        const fs = await import("fs");
-        const path = await import("path");
-        const absolutePath = path.resolve(process.cwd(), credPath);
-        const serviceAccount = JSON.parse(fs.readFileSync(absolutePath, "utf-8"));
-        initializeApp({ credential: cert(serviceAccount), projectId });
-        console.log("[FirebaseAdmin] Initialized with service account credentials.");
-      } else {
+        try {
+          const fs = await import("fs");
+          const path = await import("path");
+          const absolutePath = path.resolve(process.cwd(), credPath);
+          if (fs.existsSync(absolutePath)) {
+            const serviceAccount = JSON.parse(fs.readFileSync(absolutePath, "utf-8"));
+            initializeApp({ credential: cert(serviceAccount), projectId });
+            console.log("[FirebaseAdmin] Initialized with service account credentials.");
+            credsLoaded = true;
+          } else {
+            console.log(`[FirebaseAdmin] Service account file not found at ${absolutePath}. Removing env var to allow ADC fallback.`);
+            delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+          }
+        } catch (e: any) {
+          console.warn(`[FirebaseAdmin] Failed to load service account:`, e?.message);
+          delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+        }
+      }
+
+      if (!credsLoaded) {
         // Application Default Credentials (Cloud Run / local gcloud auth)
         try {
           initializeApp({ credential: applicationDefault(), projectId });
           console.log("[FirebaseAdmin] Initialized with Application Default Credentials.");
-        } catch {
+        } catch (err: any) {
           console.warn(
-            "[FirebaseAdmin] No credentials found. Set GOOGLE_APPLICATION_CREDENTIALS or run `gcloud auth application-default login`. Scheduler will operate in simulation mode."
+            "[FirebaseAdmin] No credentials found or ADC failed. Scheduler will operate in simulation mode. Error:", err?.message
           );
           return null;
         }

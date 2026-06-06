@@ -6,3 +6,6 @@ firebase.json
 firebase-blueprint.json
 firebase-applet-config.json
 myScratchpad.txt
+service-account.json
+.env*
+temp_*.txt

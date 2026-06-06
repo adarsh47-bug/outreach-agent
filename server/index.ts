@@ -21,6 +21,7 @@ import { startScheduler } from "./services/campaignScheduler.js";
 
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: config.maxUploadSize }));
 
   // Set COOP and COEP headers for Firebase Auth
