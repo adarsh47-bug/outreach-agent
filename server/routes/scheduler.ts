@@ -10,6 +10,7 @@ import {
   getSchedulerState,
   startScheduler,
   stopScheduler,
+  forceTick,
 } from "../services/campaignScheduler.js";
 import { getISTDateString } from "../utils/date.js";
 
@@ -43,6 +44,12 @@ router.post("/api/scheduler/pause", (_req, res) => {
 router.post("/api/scheduler/resume", (_req, res) => {
   startScheduler();
   res.json({ ok: true, message: "Scheduler resumed." });
+});
+
+/** POST /api/scheduler/tick — explicitly trigger a scheduler tick */
+router.post("/api/scheduler/tick", async (_req, res) => {
+  await forceTick();
+  res.json({ ok: true, message: "Scheduler ticked.", state: getSchedulerState() });
 });
 
 export default router;

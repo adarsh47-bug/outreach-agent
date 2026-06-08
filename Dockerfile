@@ -10,9 +10,8 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --omit=dev
 
-# Copy the pre-built files and env
+# Copy the pre-built files
 COPY dist/ ./dist/
-COPY .env ./
 
 # Set the environment variable to production
 ENV NODE_ENV=production

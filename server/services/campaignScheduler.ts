@@ -143,6 +143,10 @@ function isDayAllowed(sendingDays: string): boolean {
   return true; // full_week
 }
 
+export async function forceTick() {
+  await tick();
+}
+
 // ── Main tick ─────────────────────────────────────────────────────────────────
 
 async function tick() {
