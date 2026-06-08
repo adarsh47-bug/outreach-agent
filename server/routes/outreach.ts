@@ -82,9 +82,10 @@ EMAIL REQUIREMENTS (strict):
 - Must reference the role or the reason for outreach
 - Must end with a clear, low-pressure CTA (e.g., "Would you be open to a 15-minute call?")
 - Length: under 130 words total
-- Tone: genuine, confident, human — no buzzwords, no "I hope this email finds you well"
+- Tone: genuine, warm, highly personalized, conversational and human — do NOT sound robotic, cold, or generic. No buzzwords, no "I hope this email finds you well"
+- Format: Must use clear paragraph breaks (\n\n) to ensure readability. Do not output a single giant block of text.
 - No generic placeholders like [Company Name] or [Your Name]
-- NO bullet points — flowing prose only
+- NO bullet points — flowing paragraphs only
 
 EMAIL TYPE CONTEXT:
 - "application": Express interest in the specific role and request next steps

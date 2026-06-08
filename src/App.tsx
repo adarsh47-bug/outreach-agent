@@ -123,6 +123,7 @@ export default function App() {
                 onDeleteResume={store.handleDeleteResume}
                 selectedResumeId={store.selectedResumeId}
                 onSelectResume={store.setSelectedResumeId}
+                googleToken={googleToken}
               />
             )}
 

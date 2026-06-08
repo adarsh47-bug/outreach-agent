@@ -171,6 +171,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             achievements: data.achievements || [],
             cloudExperience: data.cloudExperience || [],
             aiExperience: data.aiExperience || [],
+            driveLink: data.driveLink,
           });
         });
         setResumes(list);
@@ -469,6 +470,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
         achievements: res.achievements || [],
         cloudExperience: res.cloudExperience || [],
         aiExperience: res.aiExperience || [],
+        driveLink: res.driveLink || null,
         uploadedAt: serverTimestamp(),
       }).catch((err) =>
         handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}/resumes/${res.id}`)

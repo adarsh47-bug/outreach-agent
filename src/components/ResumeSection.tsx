@@ -14,6 +14,7 @@ interface ResumeSectionProps {
   onDeleteResume: (id: string) => void;
   selectedResumeId: string;
   onSelectResume: (id: string) => void;
+  googleToken: string;
 }
 
 
@@ -24,11 +25,87 @@ export default function ResumeSection({
   onDeleteResume,
   selectedResumeId,
   onSelectResume,
+  googleToken,
 }: ResumeSectionProps) {
   const [inputText, setInputText] = useState("");
   const [fileName, setFileName] = useState("My_Resume.txt");
   const [isParsing, setIsParsing] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+
+  const handleDriveUploadAndLink = async (fileObj: { name: string; base64: string; mimeType: string }): Promise<string | null> => {
+    if (!googleToken) return null;
+
+    setIsUploadingToDrive(true);
+    setFeedback("Uploading PDF to Google Drive...");
+    
+    try {
+      const byteCharacters = atob(fileObj.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: fileObj.mimeType });
+
+      const metadata = {
+        name: fileObj.name,
+        mimeType: fileObj.mimeType,
+      };
+
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+      form.append("file", blob);
+
+      const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${googleToken}`,
+        },
+        body: form,
+      });
+
+      if (!res.ok) {
+        throw new Error("Google Drive refused file storage parameters.");
+      }
+
+      const fileData = await res.json();
+      const fileId = fileData.id;
+
+      setFeedback("Setting Google Drive link permissions...");
+
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${googleToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          role: "reader",
+          type: "anyone",
+        }),
+      });
+
+      const detailsRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=webViewLink`, {
+        headers: {
+          Authorization: `Bearer ${googleToken}`,
+        },
+      });
+      
+      if (detailsRes.ok) {
+        const detailsData = await detailsRes.json();
+        return detailsData.webViewLink;
+      }
+      return `https://drive.google.com/file/d/${fileId}/view`;
+    } catch (err: any) {
+      console.error(err);
+      setFeedback("Failed Google Drive sync: " + err.message);
+      return null;
+    } finally {
+      setIsUploadingToDrive(false);
+    }
+  };
 
   const parseWithGemini = async () => {
     if (!inputText.trim()) {
@@ -37,6 +114,21 @@ export default function ResumeSection({
     }
 
     setIsParsing(true);
+    let driveLink: string | null | undefined = undefined;
+
+    if (attachmentFile) {
+      if (!googleToken) {
+        setFeedback("Error: You must connect your Google account to upload resumes to Drive.");
+        setIsParsing(false);
+        return;
+      }
+      driveLink = await handleDriveUploadAndLink(attachmentFile);
+      if (!driveLink) {
+        setIsParsing(false);
+        return; // handleDriveUploadAndLink handles setting the error feedback
+      }
+    }
+
     setFeedback("Invoking Gemini 3.5 Flash server-side parser...");
 
     try {
@@ -59,6 +151,7 @@ export default function ResumeSection({
         textContent: inputText,
         summary: structuredResult.summary || "Extracted Candidate Profile.",
         skills: structuredResult.skills || [],
+        driveLink: driveLink || undefined,
         projects: structuredResult.projects || [],
         experience: structuredResult.experience || [],
         achievements: structuredResult.achievements || [],
@@ -71,6 +164,7 @@ export default function ResumeSection({
       const projectCount = (structuredResult.projects || []).length;
       setFeedback(`Resume analyzed: ${skillCount} skills, ${projectCount} projects extracted and saved!`);
       setInputText("");
+      setAttachmentFile(null);
     } catch (error: any) {
       console.error(error);
       setFeedback("Parsing failure: " + (error?.message || "Please check server limits."));
@@ -104,6 +198,12 @@ export default function ResumeSection({
         try {
           const resultStr = e.target.result as string;
           const base64Content = resultStr.split(",")[1];
+          
+          setAttachmentFile({
+            name: file.name,
+            mimeType: file.type || "application/pdf",
+            base64: base64Content
+          });
 
           const response = await fetch("/api/resume/parse-document", {
             method: "POST",
@@ -241,13 +341,13 @@ export default function ResumeSection({
             <button
               id="analyze-resume-btn"
               onClick={parseWithGemini}
-              disabled={isParsing || !inputText.trim()}
+              disabled={isParsing || isUploadingToDrive || !inputText.trim()}
               className="bg-indigo-600 font-semibold hover:bg-indigo-700 text-white text-sm px-5 py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 shadow-xs disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
             >
-              {isParsing ? (
+              {isParsing || isUploadingToDrive ? (
                 <>
                   <Sparkles className="w-4 h-4 animate-spin text-white" />
-                  Extracting with Gemini AI...
+                  {isUploadingToDrive ? "Uploading to Drive..." : "Extracting with Gemini AI..."}
                 </>
               ) : (
                 <>

@@ -549,6 +549,10 @@ async function launchBackgroundWorker(userId: string, campaign: any, resume: any
         };
       }
 
+      if (resume.driveLink) {
+        email.body += `\n\n---\n📎 Attached Secure CV Copy (Google Drive):\n${resume.driveLink}`;
+      }
+
       generatedEmails[contact.id] = email;
 
       await db.doc(`users/${userId}/applications/${contact.id}`).set(

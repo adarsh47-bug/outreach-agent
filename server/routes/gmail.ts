@@ -101,9 +101,11 @@ function buildRawEmail(
   const encodedSubject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
 
   let emailParts: string[];
+  const htmlBody = body.replace(/\r?\n/g, '<br/>');
 
   if (attachment?.base64) {
     const boundary = "outreach_boundary_" + Math.random().toString(36).substring(7);
+    const chunkedAttachment = attachment.base64.match(/.{1,76}/g)?.join("\r\n") || attachment.base64;
     emailParts = [
       `To: ${to}`,
       `Subject: ${encodedSubject}`,
@@ -111,17 +113,17 @@ function buildRawEmail(
       `Content-Type: multipart/mixed; boundary="${boundary}"`,
       ``,
       `--${boundary}`,
-      `Content-Type: text/plain; charset="utf-8"`,
+      `Content-Type: text/html; charset="utf-8"`,
       `Content-Transfer-Encoding: 8bit`,
       ``,
-      body,
+      htmlBody,
       ``,
       `--${boundary}`,
       `Content-Type: ${attachment.mimeType || "application/pdf"}; name="${attachment.name}"`,
       `Content-Transfer-Encoding: base64`,
       `Content-Disposition: attachment; filename="${attachment.name}"`,
       ``,
-      attachment.base64,
+      chunkedAttachment,
       ``,
       `--${boundary}--`,
     ];
@@ -130,10 +132,10 @@ function buildRawEmail(
       `To: ${to}`,
       `Subject: ${encodedSubject}`,
       `MIME-Version: 1.0`,
-      `Content-Type: text/plain; charset="UTF-8"`,
+      `Content-Type: text/html; charset="UTF-8"`,
       `Content-Transfer-Encoding: 8bit`,
       ``,
-      body,
+      htmlBody,
     ];
   }
 

@@ -23,6 +23,7 @@ export interface ResumeProfile {
   textContent: string;
   summary: string;
   skills: string[];
+  driveLink?: string;
   // Extended fields from Gemini analysis
   projects?: string[];
   experience?: string[];

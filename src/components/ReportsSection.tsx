@@ -191,7 +191,7 @@ export default function ReportsSection({
             Today's Snapshot
           </h2>
           <span className="text-xs text-slate-400 font-mono">
-            {formatISTDate(selectedDate)}
+            {formatISTDate(todayISTDateString())}
           </span>
         </div>
         <div className="card-body">
@@ -262,7 +262,7 @@ export default function ReportsSection({
               Generated Report
             </h2>
             <span className="text-xs text-indigo-400 font-mono">
-              {formatISTTime(selectedDate)} IST
+              {formatISTTime(todayISTDateString())} IST
             </span>
           </div>
           <div className="card-body space-y-4">
