@@ -23,7 +23,7 @@
 
 ---
 
-## 3. Get Firebase Config Keys
+## 3. Get Firebase Config Keys (Client-Side)
 
 1. Project Settings (gear icon) → General
 2. Scroll to **Your apps** → Add app → Web (`</>`)
@@ -46,7 +46,16 @@ For `VITE_FIREBASE_DATABASE_ID`: use `(default)` unless you created a named data
 
 ---
 
-## 4. Configure OAuth for Gmail
+## 4. Get Firebase Admin SDK Key (Server-Side)
+
+1. Go to Project Settings (gear icon) → **Service accounts**
+2. Click **Generate new private key**
+3. Save the downloaded JSON file as `service-account.json` in the root of the project (`outreach/service-account.json`)
+4. This file allows the backend Express server to securely access Firestore from background tasks (like the automated campaign scheduler).
+
+---
+
+## 5. Configure OAuth for Gmail
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials
 2. Click **Create Credentials** → **OAuth client ID**
@@ -61,7 +70,7 @@ For `VITE_FIREBASE_DATABASE_ID`: use `(default)` unless you created a named data
 
 ---
 
-## 5. Configure Firebase Auth Authorized Domains
+## 6. Configure Firebase Auth Authorized Domains
 
 1. Firebase Console → Authentication → Settings → Authorized domains
 2. `localhost` is already there (for dev)
@@ -69,7 +78,7 @@ For `VITE_FIREBASE_DATABASE_ID`: use `(default)` unless you created a named data
 
 ---
 
-## 6. Deploy Firestore Security Rules
+## 7. Deploy Firestore Security Rules
 
 The rules file at `firestore.rules` enforces user data isolation:
 
@@ -89,7 +98,7 @@ firebase deploy --only firestore:rules
 
 ---
 
-## 7. V3 Firestore Collections
+## 8. V3 Firestore Collections
 
 All 9 collections are auto-created on first write — no manual setup needed:
 
@@ -102,7 +111,7 @@ See [`FIRESTORE_SCHEMA.md`](FIRESTORE_SCHEMA.md) for complete field definitions.
 
 ---
 
-## 8. Verify Setup
+## 9. Verify Setup
 
 Run the app and check:
 - [ ] Sign in with Google popup appears and succeeds

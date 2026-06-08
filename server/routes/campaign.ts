@@ -288,10 +288,16 @@ router.post("/api/campaign/build-queue", async (req, res) => {
     const startTs = startDate ? new Date(startDate) : new Date(nowMs());
 
     // Parse window start and end times (e.g. "09:00", "18:00")
-    const [startH, startM] = sendingWindowStart.split(":").map(Number);
-    const [endH, endM] = sendingWindowEnd.split(":").map(Number);
-    const windowStartMins = (startH || 9) * 60 + (startM || 0);
-    const windowEndMins = (endH || 18) * 60 + (endM || 0);
+    let [startH, startM] = sendingWindowStart.split(":").map(Number);
+    let [endH, endM] = sendingWindowEnd.split(":").map(Number);
+    
+    startH = Number.isNaN(startH) ? 9 : startH;
+    startM = Number.isNaN(startM) ? 0 : startM;
+    endH = Number.isNaN(endH) ? 18 : endH;
+    endM = Number.isNaN(endM) ? 0 : endM;
+
+    const windowStartMins = startH * 60 + startM;
+    const windowEndMins = endH * 60 + endM;
 
     // Move to next valid sending day if needed
     function nextValidDay(d: Date): Date {
@@ -342,20 +348,42 @@ router.post("/api/campaign/build-queue", async (req, res) => {
     }
 
     let todayCount = 0;
+    let lastDate = getISTDate(current).getUTCDate();
 
     for (let i = 0; i < Math.min(contactCount, 500); i++) {
+      let currentIST = getISTDate(current);
+      if (currentIST.getUTCDate() !== lastDate) {
+        todayCount = 0;
+        lastDate = currentIST.getUTCDate();
+      }
+
       // Check if within sending window
-      const currentIST = getISTDate(current);
       let hour = currentIST.getUTCHours();
       let minute = currentIST.getUTCMinutes();
       let totalMinutes = hour * 60 + minute;
 
-      // If past the window end, OR the current generated time is in the past, move to next valid day
-      if (totalMinutes > windowEndMins || current.getTime() < currentNowMs) {
-        // Move to next valid day
+      let needsNextDay = false;
+
+      // If past the window end, advance to next day
+      if (totalMinutes > windowEndMins) {
         current = addDays(current, 1);
+        needsNextDay = true;
+      } 
+      // If before window start (e.g. naturally crossed midnight), it's already the new day
+      else if (totalMinutes < windowStartMins) {
+        needsNextDay = true;
+      } 
+      // Failsafe: if time went backwards
+      else if (current.getTime() < currentNowMs) {
+        current = addDays(current, 1);
+        needsNextDay = true;
+      }
+
+      if (needsNextDay) {
         current = nextValidDay(current);
         setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+        currentIST = getISTDate(current);
+        lastDate = currentIST.getUTCDate();
         todayCount = 0;
       }
 
@@ -364,6 +392,8 @@ router.post("/api/campaign/build-queue", async (req, res) => {
         current = addDays(current, 1);
         current = nextValidDay(current);
         setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+        currentIST = getISTDate(current);
+        lastDate = currentIST.getUTCDate();
         todayCount = 0;
       }
 

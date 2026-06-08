@@ -26,6 +26,7 @@ import {
 import { Campaign, Contact, ResumeProfile, EmailQueueItem, Application, UserSettings, CompanyResearch, CampaignSchedulerSettings, SendingDays } from "../types";
 import { useCampaign, CampaignLaunchProgress } from "../hooks/useCampaign";
 import { formatISTDate, formatISTTime, getISTDateString } from "../utils/date";
+import CampaignDetailView from "./CampaignDetailView";
 
 interface CampaignsSectionProps {
   campaigns: Campaign[];
@@ -106,6 +107,7 @@ export default function CampaignsSection({
 }: CampaignsSectionProps) {
   const [showBuilder, setShowBuilder] = useState(false);
   const [activeLaunchId, setActiveLaunchId] = useState<string | null>(null);
+  const [viewingCampaignId, setViewingCampaignId] = useState<string | null>(null);
 
   // Builder form state
   const [campaignName, setCampaignName] = useState("");
@@ -202,8 +204,6 @@ export default function CampaignsSection({
       onApplicationUpsert,
       onCampaignUpdate: onUpdateCampaign,
     });
-
-    setActiveLaunchId(null);
   };
 
   const getCampaignQueueStats = (campaignId: string) => {
@@ -224,6 +224,21 @@ export default function CampaignsSection({
     Paused: { color: "text-amber-700 bg-amber-50 border border-amber-200", dot: "pending", label: "Paused" },
     Complete: { color: "text-indigo-700 bg-indigo-50 border border-indigo-200", dot: "complete", label: "Complete" },
   };
+
+  if (viewingCampaignId) {
+    const campaign = campaigns.find((c) => c.id === viewingCampaignId);
+    if (campaign) {
+      return (
+        <CampaignDetailView
+          campaign={campaign}
+          emailQueue={emailQueue}
+          contacts={contacts}
+          resumes={resumes}
+          onBack={() => setViewingCampaignId(null)}
+        />
+      );
+    }
+  }
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -559,7 +574,7 @@ export default function CampaignsSection({
               <h2 className="text-sm font-bold text-indigo-800">Campaign Launching...</h2>
             </div>
             {launchProgress.error && (
-              <button onClick={cancelLaunch} className="btn-icon">
+              <button onClick={() => setActiveLaunchId(null)} className="btn-icon">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -641,7 +656,7 @@ export default function CampaignsSection({
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-bold text-slate-800 text-sm">{campaign.name}</h3>
+                        <button onClick={() => setViewingCampaignId(campaign.id)} className="font-bold text-slate-800 text-sm hover:text-indigo-600 transition-colors text-left">{campaign.name}</button>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${statusConf.color}`}>
                           <span className={`status-dot ${statusConf.dot}`} style={{ width: 6, height: 6 }} />
                           {statusConf.label}

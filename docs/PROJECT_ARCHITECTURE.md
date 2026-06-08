@@ -52,7 +52,8 @@ App.tsx
     ├── Contacts
     │   └── ContactsV2Section.tsx ← 20-field CSV import, score rings, enrichment
     ├── Campaigns
-    │   └── CampaignsSection.tsx  ← Builder + 5-step launch progress
+    │   ├── CampaignsSection.tsx  ← Builder + 5-step launch progress
+    │   └── CampaignDetailView.tsx ← Deep dive into queues, statuses, and body previews
     ├── Pipeline
     │   └── PipelineSection.tsx   ← Kanban (9 stages) + list view
     ├── Reports

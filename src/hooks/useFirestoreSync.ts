@@ -312,6 +312,7 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
                   sendingDays: data.schedulerSettings.sendingDays ?? "weekdays",
                 }
               : undefined,
+            launchProgress: data.launchProgress,
           });
         });
         list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

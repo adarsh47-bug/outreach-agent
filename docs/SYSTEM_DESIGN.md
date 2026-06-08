@@ -51,7 +51,7 @@ React SPA ←──── Firebase SDK (client-side) ────→ Cloud Fires
 | Daily report narrative | **Gemini** | Human-readable summary from raw metrics |
 | **Outreach Opportunity Score** | **Rule-based** | Tech match, role, priority, hiring signals — instant, zero cost |
 | **Email scheduling** | **Rule-based** | Window + random delay — no AI needed |
-| **Follow-up timing** | **Rule-based** | Fixed day offsets (5 / 7 / 14 days) |
+| **Follow-up timing** | **Rule-based** | Toggleable fixed day offsets (5 / 7 / 14 days) |
 | **Pipeline status transitions** | **Rule-based** | Deterministic stage machine |
 
 ---
@@ -120,7 +120,7 @@ EmailQueueItem (status: Pending, scheduledAt: ISO)
 
 ### D. Follow-Up Automation
 ```
-After initial send (Day 0):
+After initial send (Day 0), if `followUpEnabled` is true:
   Day +5  → Follow Up 1 email queued (emailType: "follow_up")
   Day +7  → Follow Up 2 email queued (emailType: "follow_up")
   Day +14 → Auto-archive (no response received)
@@ -162,6 +162,8 @@ Daily Limit:      8–12 recommended, max 20
 Min Delay:        120 minutes (between emails)
 Max Delay:        240 minutes (between emails)
 Random Jitter:    Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay
+
+*Note: The scheduler natively handles day boundaries. If the calculated send time exceeds the `Sending Window` end time, it reliably rolls over to the next valid sending day, ensuring sending limits and windows are always respected.*
 
 Example schedule (10 contacts, 10/day limit):
   Day 1: 09:13 → 11:47 → 14:22 → 16:55

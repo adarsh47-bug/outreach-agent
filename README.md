@@ -28,19 +28,20 @@ A fully automated outreach platform built with **React + TypeScript**, **Express
 | Feature | Description |
 |---|---|
 | **Dark Sidebar Navigation** | 7 sections: Dashboard, Resume, Contacts, Campaigns, Pipeline, Reports, Settings |
-| **Resume Parser** | Upload PDF/DOCX → Gemini extracts skills, projects, experience, achievements, cloud & AI expertise |
+| **Resume Parser** | Upload PDF/DOCX or link Google Drive documents → Gemini extracts skills, projects, experience, achievements, cloud & AI expertise |
 | **Contact Import** | 20-field CSV import with template download; required + recommended + advanced fields |
 | **Company Enrichment** | Gemini researches each company → stored in `companyResearch` Firestore collection |
 | **Outreach Opportunity Score** | Rule-based 0–100 score: tech match, role, priority, hiring signals, growth, personalization data |
 | **Campaign Builder** | Select resume + contacts + daily limit → 5-step AI launch (Parse → Enrich → Score → Generate → Queue) |
+| **Campaign Detail View** | Deep dive into campaign status, inspecting queued emails, statuses, scheduled times, and body previews |
 | **Email Generation** | Gemini writes <130-word emails mentioning company, project, tech, role, CTA — no generics |
-| **Human-Like Scheduler** | 09:00–18:00 weekdays, 120–240 min random delays, 8–12 emails/day |
+| **Human-Like Scheduler** | 09:00–18:00 weekdays, 120–240 min random delays, 8–12 emails/day, seamless cross-day scheduling |
 | **Gmail Integration** | OAuth send via `POST /api/gmail/send` with stored `gmailMessageId` |
 | **9-Stage Pipeline** | Unreached → Queued → Sent → Follow Up 1/2 → Replied → Interview → Rejected → Archived |
-| **Automatic Follow-Ups** | FU#1 at Day 5, FU#2 at Day 7, auto-archive at Day 14 |
+| **Automatic Follow-Ups** | Toggleable follow-ups with FU#1 at Day 5, FU#2 at Day 7, auto-archive at Day 14 |
 | **Reply Classification** | Gemini detects: Positive, Interview Request, Assessment, Rejection, Out of Office |
 | **Daily Reports** | AI-generated daily summary with metrics, highlights, top opportunities |
-| **Settings** | Gmail status, daily limit, scheduler delays, follow-up timeline visualizer |
+| **Settings** | Gmail status, limits, scheduler delays, toggleable follow-ups, timeline visualizer |
 | **Background Processing** | The agent runs autonomously inside your Node.js backend. The scheduler wakes up every 60s, silently refreshes expired Google OAuth tokens, and dispatches campaigns exactly on schedule, even when the UI is completely closed. |
 
 ---
@@ -81,6 +82,7 @@ outreach/
 │   │   ├── ResumeSection.tsx       # PDF/DOCX upload + Gemini analysis
 │   │   ├── ContactsV2Section.tsx   # 20-field CSV import + enrichment cards
 │   │   ├── CampaignsSection.tsx    # Campaign builder + 5-step progress UI
+│   │   ├── CampaignDetailView.tsx  # Deep dive into queues, statuses, and body previews
 │   │   ├── PipelineSection.tsx     # Kanban (9 stages) + list view
 │   │   ├── ReportsSection.tsx      # Daily report + live metrics snapshot
 │   │   ├── SettingsSection.tsx     # Gmail, limits, scheduler, FU timeline
@@ -192,6 +194,10 @@ Visit → `http://localhost:3000`
 | `/api/gmail/send` | POST | Send email or create draft via Gmail OAuth |
 | `/api/scrape/url` | POST | Scrape career page for job details |
 | `/api/job/match` | POST | Job description alignment score (legacy) |
+| `/api/scheduler/status` | GET | Check scheduler background status |
+| `/api/scheduler/pause` | POST | Pause the background scheduler |
+| `/api/scheduler/resume` | POST | Resume the background scheduler |
+| `/api/scheduler/tick` | POST | Explicitly trigger a scheduler tick manually |
 
 Full API docs: [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md)
 

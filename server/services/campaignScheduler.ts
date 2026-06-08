@@ -410,11 +410,11 @@ async function processUser(db: any, userId: string) {
         await appRef.set(updatePayload, { merge: true });
 
         // Schedule follow-up if this was attempt 1
-        if (item.attemptNumber === 1) {
+        if (item.attemptNumber === 1 && camp.followUpEnabled) {
           await scheduleFollowUp(db, userId, item, followUp1Days, 2);
-        } else if (item.attemptNumber === 2) {
+        } else if (item.attemptNumber === 2 && camp.followUpEnabled) {
           await scheduleFollowUp(db, userId, item, followUp2Days, 3);
-        } else if (item.attemptNumber === 3) {
+        } else if (item.attemptNumber === 3 || !camp.followUpEnabled) {
           // Archive if no response after archiveDays from last send
           const archiveDate = new Date(
             nowMs() + archiveDays * 24 * 60 * 60 * 1000

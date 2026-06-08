@@ -59,6 +59,69 @@ Server health check.
 
 ---
 
+### `GET /api/scheduler/status`
+
+Health check, last tick, emails sent, next due.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "scheduler": {
+    "running": true,
+    "lastTickAt": "2026-06-05T17:00:00.000Z",
+    "lastTickResult": "success",
+    "emailsSentThisTick": 1,
+    "totalEmailsSentToday": 10,
+    "nextEmailDueAt": "2026-06-05T18:00:00.000Z",
+    "recentErrors": []
+  },
+  "serverTime": "05 Jun 2026, 22:30 IST"
+}
+```
+
+---
+
+### `POST /api/scheduler/pause`
+
+Stop the background scheduler (admin/debug only).
+
+**Response:**
+```json
+{ "ok": true, "message": "Scheduler paused." }
+```
+
+---
+
+### `POST /api/scheduler/resume`
+
+Restart the background scheduler.
+
+**Response:**
+```json
+{ "ok": true, "message": "Scheduler resumed." }
+```
+
+---
+
+### `POST /api/scheduler/tick`
+
+Explicitly trigger a scheduler tick manually.
+
+**Response:**
+```json
+{
+  "ok": true,
+  "message": "Scheduler ticked.",
+  "state": {
+    "running": true,
+    "lastTickAt": "2026-06-05T17:00:00.000Z"
+  }
+}
+```
+
+---
+
 ### `POST /api/resume/parse-document`
 
 Parse a PDF, DOCX, or TXT file and return raw text.
