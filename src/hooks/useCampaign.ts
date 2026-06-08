@@ -50,8 +50,6 @@ interface LaunchParams {
   googleToken: string;
   settings: {
     dailyLimit: number;
-    minDelayMinutes: number;
-    maxDelayMinutes: number;
     followUpEnabled: boolean;
   };
   onEnrichComplete: (contactId: string, research: CompanyResearch) => Promise<void>;

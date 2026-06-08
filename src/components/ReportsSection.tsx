@@ -4,6 +4,7 @@
  */
 
 import { useState } from "react";
+import { formatISTDate, formatISTTime, getISTDateString, todayISTDateString, nowMs } from "../utils/date";
 import {
   BarChart3,
   Send,
@@ -49,7 +50,7 @@ export default function ReportsSection({
   const [error, setError] = useState("");
 
   const computeLiveMetrics = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayISTDateString();
     const sentToday = applications.filter((a) => {
       const updated = a.updatedAt?.split("T")[0];
       return updated === today && (a.status === "Sent" || a.status === "Follow Up 1" || a.status === "Follow Up 2");
@@ -104,7 +105,7 @@ export default function ReportsSection({
 
     try {
       const metrics = computeLiveMetrics();
-      const today = new Date().toISOString().split("T")[0];
+      const today = todayISTDateString();
 
       const result = await generateDailyReport({
         date: today,
@@ -120,7 +121,7 @@ export default function ReportsSection({
 
       // Save to Firestore
       const report: DailyReport = {
-        id: `report_${today}_${Date.now()}`,
+        id: `report_${today}_${nowMs()}`,
         date: today,
         emailsSent: metrics.emailsSent,
         replies: metrics.replies,
@@ -128,7 +129,7 @@ export default function ReportsSection({
         followUpsSent: metrics.followUpsSent,
         pendingCompanies: metrics.pendingCompanies,
         topOpportunities: metrics.topOpportunities,
-        generatedAt: new Date().toISOString(),
+        generatedAt: getISTDateString(),
         sentToGmail: false,
       };
 
@@ -142,13 +143,9 @@ export default function ReportsSection({
 
   const liveMetrics = computeLiveMetrics();
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString("en-IN", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const formatDate = (dateStr: string) => {
+    return formatISTDate(dateStr);
+  };
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -194,7 +191,7 @@ export default function ReportsSection({
             Today's Snapshot
           </h2>
           <span className="text-xs text-slate-400 font-mono">
-            {new Date().toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric" })}
+            {formatISTDate(selectedDate)}
           </span>
         </div>
         <div className="card-body">
@@ -265,7 +262,7 @@ export default function ReportsSection({
               Generated Report
             </h2>
             <span className="text-xs text-indigo-400 font-mono">
-              {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST
+              {formatISTTime(selectedDate)} IST
             </span>
           </div>
           <div className="card-body space-y-4">
@@ -331,10 +328,7 @@ export default function ReportsSection({
                     </span>
                   )}
                   <span className="text-xs font-mono text-slate-400">
-                    {new Date(report.generatedAt).toLocaleTimeString("en-IN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatISTTime(report.generatedAt)}
                   </span>
                 </div>
               </div>

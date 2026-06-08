@@ -5,7 +5,8 @@
 
 import React, { useState } from "react";
 import { ListTodo, Milestone, ChevronRight } from "lucide-react";
-import { Application } from "../types";
+import { Application, Contact } from "../types";
+import { formatISTDate, formatISTTime } from "../utils/date";
 
 interface TrackerSectionProps {
   applications: Application[];
@@ -101,7 +102,7 @@ export default function TrackerSection({
                           Match: {app.matchScore}%
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          Updated {new Date(app.updatedAt).toLocaleDateString()}
+                          Updated {formatISTDate(app.updatedAt)}
                         </span>
                       </div>
                     </div>
@@ -189,7 +190,7 @@ export default function TrackerSection({
                     
                     <div className="space-y-0.5">
                       <span className="text-[9px] text-slate-400 font-mono block">
-                        {new Date(log.timestamp).toLocaleDateString()} {new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {formatISTDate(log.timestamp)} {formatISTTime(log.timestamp)}
                       </span>
                       <p className="text-xs font-medium text-slate-800 leading-normal">{log.note}</p>
                       <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 border border-indigo-100/50 rounded-full px-2 py-0.5 inline-block mt-1">

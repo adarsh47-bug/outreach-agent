@@ -30,3 +30,27 @@ export function getISTDateString(date: Date | string = new Date()): string {
 export function todayISTDateString(): string {
   return getISTDateString().split('T')[0];
 }
+
+export function nowMs(): number {
+  return new Date().getTime();
+}
+
+export function formatISTDate(date: Date | string = new Date()): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "Invalid Date";
+  const istDate = getISTDate(d);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = istDate.getUTCFullYear();
+  const month = pad(istDate.getUTCMonth() + 1);
+  const day = pad(istDate.getUTCDate());
+  return `${year}-${month}-${day}`;
+}
+
+export function formatISTTime(date: Date | string = new Date()): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "Invalid Time";
+  const istDate = getISTDate(d);
+  const hours = istDate.getUTCHours().toString().padStart(2, '0');
+  const minutes = istDate.getUTCMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}

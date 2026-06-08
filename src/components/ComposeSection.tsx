@@ -18,7 +18,8 @@ import {
   Check, 
 } from "lucide-react";
 import { Contact, ResumeProfile, Application } from "../types";
-import { getISTDateString } from "../utils/date";
+import { supabase } from "../lib/supabase";
+import { formatISTDate, getISTDateString, getISTDate, addDays } from '../utils/date';
 
 interface ComposeSectionProps {
   contacts: Contact[];
@@ -294,9 +295,8 @@ export default function ComposeSection({
           // Show calendar form immediately after successful send to prompt follower
           setShowCalendarForm(true);
           setCalendarTitle(`Follow up with ${activeLead.recruiterName} (${activeLead.companyName})`);
-          setCalendarDescription(`Review application for the ${activeLead.role} role. Outreach was dispatched to ${activeLead.email} on ${new Date().toLocaleDateString()}.`);
-          const oneWeek = new Date();
-          oneWeek.setDate(oneWeek.getDate() + 7);
+          setCalendarDescription(`Review application for the ${activeLead.role} role. Outreach was dispatched to ${activeLead.email} on ${formatISTDate()}.`);
+          const oneWeek = addDays(getISTDate(), 7);
           oneWeek.setHours(10, 0, 0, 0);
           setCalendarDate(getISTDateString(oneWeek).substring(0, 16));
         }
@@ -646,8 +646,7 @@ export default function ComposeSection({
                 if (activeLead && !calendarTitle) {
                   setCalendarTitle(`Follow up: ${activeLead.recruiterName} (${activeLead.companyName})`);
                   setCalendarDescription(`Follow up regarding ${activeLead.role} position at ${activeLead.companyName}.\nRecruiter contact: ${activeLead.email}`);
-                  const oneWeek = new Date();
-                  oneWeek.setDate(oneWeek.getDate() + 7);
+                  const oneWeek = addDays(getISTDate(), 7);
                   oneWeek.setHours(10, 0, 0, 0);
                   setCalendarDate(getISTDateString(oneWeek).substring(0, 16));
                 }

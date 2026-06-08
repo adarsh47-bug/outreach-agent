@@ -118,11 +118,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   defaultFollowUpDays: 5,
   followUp2Days: 7,
   archiveDays: 14,
-  sendingWindowStart: "09:00",
-  sendingWindowEnd: "18:00",
-  minDelayMinutes: 120,
-  maxDelayMinutes: 240,
-  sendingDays: "weekdays",
   updatedAt: getISTDateString(),
 };
 
@@ -418,11 +413,6 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             defaultFollowUpDays: data.defaultFollowUpDays ?? 5,
             followUp2Days: data.followUp2Days ?? 7,
             archiveDays: data.archiveDays ?? 14,
-            sendingWindowStart: data.sendingWindowStart ?? "09:00",
-            sendingWindowEnd: data.sendingWindowEnd ?? "18:00",
-            minDelayMinutes: data.minDelayMinutes ?? 120,
-            maxDelayMinutes: data.maxDelayMinutes ?? 240,
-            sendingDays: data.sendingDays ?? "weekdays",
             updatedAt: toISOString(data.updatedAt),
           });
         } else {

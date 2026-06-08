@@ -5,6 +5,7 @@
 
 import React, { useState, useRef } from "react";
 import { Sparkles, FileText, Upload, Trash2, CheckCircle, CheckCircle2 } from "lucide-react";
+import { getISTDateString } from '../utils/date';
 import { ResumeProfile } from "../types";
 
 interface ResumeSectionProps {
@@ -54,7 +55,7 @@ export default function ResumeSection({
       const newResume: ResumeProfile = {
         id: "res_" + Math.random().toString(36).substring(7),
         fileName: fileName,
-        uploadedAt: new Date().toISOString(),
+        uploadedAt: getISTDateString(),
         textContent: inputText,
         summary: structuredResult.summary || "Extracted Candidate Profile.",
         skills: structuredResult.skills || [],

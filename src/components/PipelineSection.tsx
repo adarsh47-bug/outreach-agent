@@ -19,6 +19,7 @@ import {
   Send,
 } from "lucide-react";
 import { Application } from "../types";
+import { formatISTDate } from "../utils/date";
 
 interface PipelineSectionProps {
   applications: Application[];
@@ -163,8 +164,7 @@ export default function PipelineSection({
   const repliedCount = (byStage["Replied"] || []).length;
 
   const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+    return formatISTDate(iso);
   };
 
   const getScoreClass = (score: number) => {

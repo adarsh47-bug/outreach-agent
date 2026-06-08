@@ -244,11 +244,6 @@ export interface UserSettings {
   defaultFollowUpDays: number; // default 5
   followUp2Days: number; // default 7
   archiveDays: number; // default 14
-  sendingWindowStart: string; // "09:00"
-  sendingWindowEnd: string; // "18:00"
-  minDelayMinutes: number; // 120
-  maxDelayMinutes: number; // 240
-  sendingDays: SendingDays; // "weekdays"
   updatedAt: string;
 }
 

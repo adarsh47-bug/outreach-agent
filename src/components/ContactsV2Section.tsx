@@ -23,6 +23,7 @@ import {
   Filter,
 } from "lucide-react";
 import { Contact, ContactPriority } from "../types";
+import { getISTDateString } from '../utils/date';
 
 interface ContactsV2SectionProps {
   contacts: Contact[];
@@ -101,7 +102,7 @@ function importContactsFromCSV(raw: string): { contacts: Contact[]; errors: stri
       role: row.role || row.job_title || row.position || "",
       location: row.location || "Remote",
       priority: finalPriority,
-      createdAt: new Date().toISOString(),
+      createdAt: getISTDateString(),
       website: row.website || row.company_website || "",
       personName: row.person_name || row.name || row.contact_name || "",
       designation: row.designation || row.title || "",

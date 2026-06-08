@@ -7,7 +7,7 @@ import { Type } from "@google/genai";
 import { getAI } from "../services/gemini.js";
 import { getAdminDb, getAdminFieldValue } from "../services/firebaseAdmin.js";
 import { config } from "../config.js";
-import { getISTDateString, getISTDate, setISTTime, addDays } from "../utils/date.js";
+import { getISTDateString, getISTDate, setISTTime, addDays, nowMs } from "../utils/date.js";
 
 const router = Router();
 
@@ -285,7 +285,7 @@ router.post("/api/campaign/build-queue", async (req, res) => {
     }
 
     const slots: string[] = [];
-    const startTs = startDate ? new Date(startDate) : new Date();
+    const startTs = startDate ? new Date(startDate) : new Date(nowMs());
 
     // Parse window start and end times (e.g. "09:00", "18:00")
     const [startH, startM] = sendingWindowStart.split(":").map(Number);
@@ -315,12 +315,33 @@ router.post("/api/campaign/build-queue", async (req, res) => {
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    let current = nextValidDay(new Date(startTs));
-    // Start at sendingWindowStart
-    setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+    let current = new Date(startTs);
+    const currentNowMs = nowMs();
+
+    if (current.getTime() < currentNowMs) {
+      current = new Date(currentNowMs);
+    }
+
+    const originalDateString = getISTDateString(current).split('T')[0];
+    current = nextValidDay(current);
+    const newDateString = getISTDateString(current).split('T')[0];
+
+    let currentIST = getISTDate(current);
+    let currentMins = currentIST.getUTCHours() * 60 + currentIST.getUTCMinutes();
+
+    if (originalDateString !== newDateString) {
+        setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+    } else if (currentMins > windowEndMins) {
+        current = addDays(current, 1);
+        current = nextValidDay(current);
+        setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+    } else if (currentMins < windowStartMins) {
+        setISTTime(current, startH, startM + Math.floor(Math.random() * 30));
+    } else {
+        current = new Date(current.getTime() + Math.floor(Math.random() * 5 + 1) * 60000);
+    }
 
     let todayCount = 0;
-    const nowMs = Date.now();
 
     for (let i = 0; i < Math.min(contactCount, 500); i++) {
       // Check if within sending window
@@ -330,7 +351,7 @@ router.post("/api/campaign/build-queue", async (req, res) => {
       let totalMinutes = hour * 60 + minute;
 
       // If past the window end, OR the current generated time is in the past, move to next valid day
-      if (totalMinutes > windowEndMins || current.getTime() < nowMs) {
+      if (totalMinutes > windowEndMins || current.getTime() < currentNowMs) {
         // Move to next valid day
         current = addDays(current, 1);
         current = nextValidDay(current);
@@ -563,11 +584,11 @@ async function launchBackgroundWorker(userId: string, campaign: any, resume: any
       body: JSON.stringify({
         contactCount: sortedContacts.length,
         dailyLimit: campaign.dailyLimit || settings.dailyLimit,
-        minDelay: campaign.schedulerSettings?.minDelayMinutes || settings.minDelayMinutes,
-        maxDelay: campaign.schedulerSettings?.maxDelayMinutes || settings.maxDelayMinutes,
-        sendingDays: campaign.schedulerSettings?.sendingDays || settings.sendingDays || "weekdays",
-        sendingWindowStart: campaign.schedulerSettings?.sendingWindowStart || settings.sendingWindowStart || "09:00",
-        sendingWindowEnd: campaign.schedulerSettings?.sendingWindowEnd || settings.sendingWindowEnd || "18:00",
+        minDelay: campaign.schedulerSettings?.minDelayMinutes || 120,
+        maxDelay: campaign.schedulerSettings?.maxDelayMinutes || 240,
+        sendingDays: campaign.schedulerSettings?.sendingDays || "weekdays",
+        sendingWindowStart: campaign.schedulerSettings?.sendingWindowStart || "09:00",
+        sendingWindowEnd: campaign.schedulerSettings?.sendingWindowEnd || "18:00",
       }),
     });
     if (!queueRes.ok) throw new Error("Failed to build queue");
@@ -589,7 +610,7 @@ async function launchBackgroundWorker(userId: string, campaign: any, resume: any
         subject: email.subject,
         body: email.body,
         attemptNumber: 1,
-        createdAt: getISTDateString(),
+        createdAt: getISTDateString(new Date(nowMs() + i * 1000)),
       });
     }
 

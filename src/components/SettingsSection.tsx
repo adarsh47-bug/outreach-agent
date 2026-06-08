@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { UserSettings, SendingDays } from "../types";
 import type { TokenStatus } from "../hooks/useAuth";
+import { todayISTDateString, getISTDateString, nowMs } from "../utils/date";
 
 interface SettingsSectionProps {
   settings: UserSettings | null;
@@ -47,29 +48,18 @@ export default function SettingsSection({
   const defaults = settings || {
     dailyLimit: 10,
     emailsSentToday: 0,
-    lastResetDate: new Date().toISOString().split("T")[0],
+    lastResetDate: todayISTDateString(),
     addFollowUpReminders: true,
     defaultFollowUpDays: 5,
     followUp2Days: 7,
     archiveDays: 14,
-    sendingWindowStart: "09:00",
-    sendingWindowEnd: "18:00",
-    minDelayMinutes: 120,
-    maxDelayMinutes: 240,
-    updatedAt: new Date().toISOString(),
+    updatedAt: getISTDateString(),
   };
 
   const [dailyLimit, setDailyLimit] = useState(defaults.dailyLimit);
   const [followUp1Days, setFollowUp1Days] = useState(defaults.defaultFollowUpDays);
   const [followUp2Days, setFollowUp2Days] = useState(defaults.followUp2Days);
   const [archiveDays, setArchiveDays] = useState(defaults.archiveDays);
-  const [minDelay, setMinDelay] = useState(defaults.minDelayMinutes);
-  const [maxDelay, setMaxDelay] = useState(defaults.maxDelayMinutes);
-  const [sendingDays, setSendingDays] = useState<SendingDays>(
-    (defaults as UserSettings & { sendingDays?: SendingDays }).sendingDays ?? "weekdays"
-  );
-  const [sendingWindowStart, setSendingWindowStart] = useState(defaults.sendingWindowStart);
-  const [sendingWindowEnd, setSendingWindowEnd] = useState(defaults.sendingWindowEnd);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -82,11 +72,6 @@ export default function SettingsSection({
         defaultFollowUpDays: followUp1Days,
         followUp2Days,
         archiveDays,
-        minDelayMinutes: minDelay,
-        maxDelayMinutes: maxDelay,
-        sendingDays,
-        sendingWindowStart,
-        sendingWindowEnd,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -97,21 +82,7 @@ export default function SettingsSection({
     }
   };
 
-  // Generate example schedule times
-  const generateExampleTimes = () => {
-    const times: string[] = [];
-    let currentMin = 9 * 60 + Math.floor(Math.random() * 30); // 09:00–09:30
-    for (let i = 0; i < 4; i++) {
-      const h = Math.floor(currentMin / 60);
-      const m = currentMin % 60;
-      if (h >= 18) break;
-      times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-      currentMin += minDelay + Math.floor(Math.random() * (maxDelay - minDelay));
-    }
-    return times;
-  };
 
-  const exampleTimes = generateExampleTimes();
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -169,7 +140,7 @@ export default function SettingsSection({
                 <p className="text-sm font-semibold text-slate-800">Gmail (OAuth)</p>
                 <p className="text-xs text-slate-500">
                   {googleToken && tokenStatus === "valid"
-                    ? `Connected${tokenExpiresAt ? ` · expires in ${Math.max(0, Math.floor((tokenExpiresAt.getTime() - Date.now()) / 60_000))}m` : ""}`
+                    ? `Connected${tokenExpiresAt ? ` · expires in ${Math.max(0, Math.floor((tokenExpiresAt.getTime() - nowMs()) / 60_000))}m` : ""}`
                     : tokenStatus === "expiring_soon"
                     ? "Token expiring soon — refresh recommended"
                     : "Not connected"}
@@ -220,16 +191,7 @@ export default function SettingsSection({
             <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
           </div>
 
-          {/* Scheduler */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-100 bg-indigo-50">
-            <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center flex-shrink-0">
-              <Wifi className="w-4 h-4 text-indigo-700" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Background Scheduler</p>
-              <p className="text-xs text-slate-500">Dispatches emails every 60s · respects sending window & daily limit</p>
-            </div>
-          </div>
+
 
           <p className="text-[10px] text-slate-400">
             Keep the server running (<span className="font-mono">npm run dev</span>) for autonomous campaign dispatch. Gmail token auto-refreshes every 50 minutes.
@@ -338,119 +300,6 @@ export default function SettingsSection({
         </div>
       </div>
 
-      {/* Sending Window + Schedule */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-indigo-600" />
-            Scheduler Settings
-          </h2>
-        </div>
-        <div className="card-body space-y-5">
-          {/* Sending window */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Window Start</label>
-              <input
-                id="settings-window-start"
-                type="time"
-                value={sendingWindowStart}
-                onChange={(e) => setSendingWindowStart(e.target.value)}
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="label">Window End</label>
-              <input
-                id="settings-window-end"
-                type="time"
-                value={sendingWindowEnd}
-                onChange={(e) => setSendingWindowEnd(e.target.value)}
-                className="input-field"
-              />
-            </div>
-          </div>
-
-          {/* Sending Days */}
-          <div>
-            <label className="label">Sending Days (Default for all campaigns)</label>
-            <div className="grid grid-cols-3 gap-2 mt-1">
-              {([
-                { value: "weekdays", label: "Weekdays", sub: "Mon – Fri" },
-                { value: "full_week", label: "Full Week", sub: "Mon – Sun" },
-                { value: "weekends", label: "Weekends", sub: "Sat – Sun" },
-              ] as { value: SendingDays; label: string; sub: string }[]).map((opt) => (
-                <button
-                  key={opt.value}
-                  id={`settings-days-${opt.value}`}
-                  onClick={() => setSendingDays(opt.value)}
-                  className={`flex flex-col items-center justify-center gap-0.5 p-3 rounded-xl border-2 text-xs font-semibold transition-all ${
-                    sendingDays === opt.value
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-slate-200 text-slate-500 hover:border-indigo-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>{opt.label}</span>
-                  <span className="text-[10px] font-normal opacity-70">{opt.sub}</span>
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-2">
-              Emails are only dispatched on the selected days. Individual campaigns can override this.
-            </p>
-          </div>
-
-          {/* Delay settings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Min Delay (minutes)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="min-delay-slider"
-                  type="range"
-                  min={60}
-                  max={180}
-                  step={10}
-                  value={minDelay}
-                  onChange={(e) => setMinDelay(Number(e.target.value))}
-                  className="flex-1 accent-indigo-600"
-                />
-                <span className="text-sm font-bold text-slate-700 w-8 text-right">{minDelay}</span>
-              </div>
-            </div>
-            <div>
-              <label className="label">Max Delay (minutes)</label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="max-delay-slider"
-                  type="range"
-                  min={120}
-                  max={360}
-                  step={10}
-                  value={maxDelay}
-                  onChange={(e) => setMaxDelay(Number(e.target.value))}
-                  className="flex-1 accent-indigo-600"
-                />
-                <span className="text-sm font-bold text-slate-700 w-8 text-right">{maxDelay}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Example schedule */}
-          <div className="bg-slate-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-slate-600 uppercase tracking-wide">Example Schedule</p>
-              <span className="text-[10px] text-slate-400">Human-like randomized times</span>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {exampleTimes.map((t, i) => (
-                <span key={i} className="tag tag-indigo font-mono">{t}</span>
-              ))}
-              <span className="text-slate-400 text-xs">→ ...</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Follow-Up Timing */}
       <div className="card">

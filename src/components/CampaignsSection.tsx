@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Campaign, Contact, ResumeProfile, EmailQueueItem, Application, UserSettings, CompanyResearch, CampaignSchedulerSettings, SendingDays } from "../types";
 import { useCampaign, CampaignLaunchProgress } from "../hooks/useCampaign";
+import { formatISTDate, formatISTTime, getISTDateString } from "../utils/date";
 
 interface CampaignsSectionProps {
   campaigns: Campaign[];
@@ -114,23 +115,13 @@ export default function CampaignsSection({
   const [followUpEnabled, setFollowUpEnabled] = useState(true);
   const [contactFilter, setContactFilter] = useState("");
 
-  // Per-campaign scheduler overrides — pre-filled from global settings
+  // Per-campaign scheduler overrides
   const [showScheduler, setShowScheduler] = useState(false);
-  const [schedSendingDays, setSchedSendingDays] = useState<SendingDays>(
-    (settings as (UserSettings & { sendingDays?: SendingDays }) | null)?.sendingDays ?? "weekdays"
-  );
-  const [schedWindowStart, setSchedWindowStart] = useState(
-    settings?.sendingWindowStart ?? "09:00"
-  );
-  const [schedWindowEnd, setSchedWindowEnd] = useState(
-    settings?.sendingWindowEnd ?? "18:00"
-  );
-  const [schedMinDelay, setSchedMinDelay] = useState(
-    settings?.minDelayMinutes ?? 120
-  );
-  const [schedMaxDelay, setSchedMaxDelay] = useState(
-    settings?.maxDelayMinutes ?? 240
-  );
+  const [schedSendingDays, setSchedSendingDays] = useState<SendingDays>("weekdays");
+  const [schedWindowStart, setSchedWindowStart] = useState("09:00");
+  const [schedWindowEnd, setSchedWindowEnd] = useState("18:00");
+  const [schedMinDelay, setSchedMinDelay] = useState(120);
+  const [schedMaxDelay, setSchedMaxDelay] = useState(240);
 
   const { launching, launchProgress: localLaunchProgress, launchCampaign, cancelLaunch } = useCampaign();
 
@@ -166,8 +157,8 @@ export default function CampaignsSection({
       dailyLimit,
       followUpEnabled,
       contactIds: selectedContactIds,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: getISTDateString(),
+      updatedAt: getISTDateString(),
       schedulerSettings,
       stats: {
         total: selectedContactIds.length,
@@ -202,8 +193,6 @@ export default function CampaignsSection({
       googleToken,
       settings: {
         dailyLimit: campaign.dailyLimit,
-        minDelayMinutes: settings?.minDelayMinutes || 120,
-        maxDelayMinutes: settings?.maxDelayMinutes || 240,
         followUpEnabled: campaign.followUpEnabled,
       },
       onEnrichComplete,
@@ -227,8 +216,7 @@ export default function CampaignsSection({
     };
   };
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
+  const formatDate = (iso: string) => formatISTDate(iso);
 
   const STATUS_CONFIG: Record<Campaign["status"], { color: string; dot: string; label: string }> = {
     Draft: { color: "text-slate-500 bg-slate-100", dot: "draft", label: "Draft" },
@@ -698,12 +686,7 @@ export default function CampaignsSection({
                             <span>{sentPct}% sent · {queueStats.pending} pending</span>
                             <span>
                               {queueStats.nextScheduledAt
-                                ? `Next: ${new Date(queueStats.nextScheduledAt).toLocaleString("en-IN", {
-                                    month: "short",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}`
+                                ? `Next: ${formatISTDate(queueStats.nextScheduledAt)} ${formatISTTime(queueStats.nextScheduledAt)}`
                                 : `Limit: ${campaign.dailyLimit}/day`}
                             </span>
                           </div>

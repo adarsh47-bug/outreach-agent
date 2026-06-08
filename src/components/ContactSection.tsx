@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { Users, Search, Trash2, CheckCircle, Table, Mail, Phone } from "lucide-react";
+import { getISTDateString } from "../utils/date";
 import { Contact } from "../types";
 
 interface ContactSectionProps {
@@ -52,7 +53,7 @@ export default function ContactSection({
             location: loc || "Remote",
             source: src || "Imported CSV",
             priority: "Medium",
-            createdAt: new Date().toISOString(),
+            createdAt: getISTDateString(),
           };
           onAddContact(newContact);
           count++;

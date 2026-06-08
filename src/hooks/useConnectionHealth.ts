@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import type { TokenStatus } from "./useAuth";
+import { getISTDateString } from "../utils/date";
 
 export interface ConnectionHealth {
   isOnline: boolean;
@@ -87,7 +88,7 @@ export function useConnectionHealth({
           schedulerLastTick: data.scheduler?.lastTickAt ?? null,
           schedulerNextEmail: data.scheduler?.nextEmailDueAt ?? null,
           emailsSentToday: data.scheduler?.totalEmailsSentToday ?? 0,
-          lastCheckedAt: new Date().toISOString(),
+          lastCheckedAt: getISTDateString(),
         }));
       } else {
         setHealth((h) => ({ ...h, schedulerRunning: false }));
@@ -98,7 +99,7 @@ export function useConnectionHealth({
         ...h,
         firebaseOk: false,
         schedulerRunning: false,
-        lastCheckedAt: new Date().toISOString(),
+        lastCheckedAt: getISTDateString(),
       }));
     }
   }, []);

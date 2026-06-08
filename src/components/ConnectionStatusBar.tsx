@@ -3,6 +3,7 @@
  * Shows Gmail, Firebase, network, and scheduler status with action buttons.
  */
 import { Wifi, WifiOff, Mail, Database, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { nowMs, formatISTTime } from "../utils/date";
 import type { ConnectionHealth } from "../hooks/useConnectionHealth";
 import type { User } from "firebase/auth";
 
@@ -71,13 +72,12 @@ export default function ConnectionStatusBar({
 
   const formatTime = (iso: string | null) => {
     if (!iso) return null;
-    const d = new Date(iso);
-    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    return formatISTTime(iso);
   };
 
   const formatTimeUntil = (date: Date | null) => {
     if (!date) return null;
-    const mins = Math.floor((date.getTime() - Date.now()) / 60_000);
+    const mins = Math.floor((date.getTime() - nowMs()) / 60_000);
     if (mins <= 0) return "Expired";
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;

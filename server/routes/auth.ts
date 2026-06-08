@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAdminDb, getAdminFieldValue } from "../services/firebaseAdmin.js";
-import { config } from "../config.js";
+import { getISTDateString, nowMs } from "../utils/date.js";
 
 const router = Router();
 
@@ -85,7 +85,7 @@ router.get("/api/auth/google/callback", async (req, res) => {
     // Save to Firestore so the scheduler can use it
     const updateData: any = {
       accessToken: access_token,
-      expiresAt: new Date(Date.now() + expires_in * 1000).toISOString(),
+      expiresAt: getISTDateString(new Date(nowMs() + expires_in * 1000)),
       updatedAt: getAdminFieldValue().serverTimestamp(),
     };
     

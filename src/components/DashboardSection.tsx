@@ -20,6 +20,7 @@ import {
   Database,
   AlertCircle,
 } from "lucide-react";
+import { formatISTDate, formatISTTime, nowMs } from '../utils/date';
 import { Application, Campaign, Contact, EmailQueueItem } from "../types";
 import type { ConnectionHealth } from "../hooks/useConnectionHealth";
 
@@ -144,14 +145,13 @@ export default function DashboardSection({
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
+    const diffMs = nowMs() - d.getTime();
     const diffH = Math.floor(diffMs / 3600000);
     const diffM = Math.floor(diffMs / 60000);
     if (diffM < 1) return "just now";
     if (diffM < 60) return `${diffM}m ago`;
     if (diffH < 24) return `${diffH}h ago`;
-    return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+    return formatISTDate(d);
   };
 
   const getStatusColor = (status: string) => {
@@ -303,7 +303,7 @@ export default function DashboardSection({
             <div className="text-center p-3 bg-slate-50 rounded-xl">
               <p className="text-sm font-bold text-slate-700">
                 {health.schedulerLastTick
-                  ? new Date(health.schedulerLastTick).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                  ? formatISTTime(health.schedulerLastTick)
                   : "—"}
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">Last tick</p>
@@ -311,7 +311,7 @@ export default function DashboardSection({
             <div className="text-center p-3 bg-slate-50 rounded-xl">
               <p className="text-sm font-bold text-slate-700">
                 {health.schedulerNextEmail
-                  ? new Date(health.schedulerNextEmail).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                  ? formatISTTime(health.schedulerNextEmail)
                   : "None queued"}
               </p>
               <p className="text-[10px] text-slate-500 mt-0.5">Next email</p>

@@ -9,6 +9,7 @@
  *  - Exposes `tokenStatus` for connection health UI.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { nowMs } from "../utils/date";
 import {
   GoogleAuthProvider,
   signInWithRedirect,
@@ -85,7 +86,7 @@ export function useAuth() {
             setTokenStatus("expired");
           } else {
             // Set Token Status
-            const remaining = expiresAt.getTime() - Date.now();
+            const remaining = expiresAt.getTime() - nowMs();
             if (remaining <= 0) {
               setTokenStatus("expired");
             } else if (remaining <= REFRESH_THRESHOLD_MS) {
@@ -106,7 +107,7 @@ export function useAuth() {
   useEffect(() => {
     if (!tokenExpiresAt) return;
     const interval = setInterval(() => {
-      const remaining = tokenExpiresAt.getTime() - Date.now();
+      const remaining = tokenExpiresAt.getTime() - nowMs();
       if (remaining <= 0) {
         setTokenStatus("expired");
       } else if (remaining <= REFRESH_THRESHOLD_MS) {

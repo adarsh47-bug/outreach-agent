@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import { Sparkles, Clipboard, CheckSquare, AlertTriangle, Lightbulb, Target, RefreshCw, Globe, Plus, Briefcase, MapPin } from "lucide-react";
+import { getISTDateString } from '../utils/date';
 import { ResumeProfile, Contact } from "../types";
 
 interface MatchSectionProps {
@@ -110,7 +111,7 @@ export default function MatchSection({
       location: scrapedLeadInfo.location,
       source: "Web Scraped Job Listing",
       priority: "Medium",
-      createdAt: new Date().toISOString()
+      createdAt: getISTDateString()
     };
     
     if (onAddContact) {

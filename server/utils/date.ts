@@ -49,3 +49,7 @@ export function setISTTime(date: Date, hours: number, minutes: number): void {
   const absoluteTime = utcEquivalent.getTime() - (5.5 * 60 * 60 * 1000);
   date.setTime(absoluteTime);
 }
+
+export function nowMs(): number {
+  return new Date().getTime();
+}
