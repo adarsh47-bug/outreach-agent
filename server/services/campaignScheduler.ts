@@ -14,6 +14,7 @@
 
 import { getAdminDb } from "./firebaseAdmin.js";
 import { getISTDateString, todayISTDateString, getISTDate, nowMs } from "../utils/date.js";
+import { buildRawEmail } from "../routes/gmail.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,24 +65,11 @@ async function sendViaGmail(
   accessToken: string,
   to: string,
   subject: string,
-  body: string
+  body: string,
+  attachment?: { base64: string; name: string; mimeType: string }
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    const encodedSubject = `=?utf-8?B?${Buffer.from(subject).toString("base64")}?=`;
-    const rawParts = [
-      `To: ${to}`,
-      `Subject: ${encodedSubject}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/plain; charset="UTF-8"`,
-      `Content-Transfer-Encoding: 8bit`,
-      ``,
-      body,
-    ];
-    const raw = Buffer.from(rawParts.join("\r\n"))
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const raw = buildRawEmail(to, subject, body, attachment);
 
     const response = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
@@ -360,11 +348,41 @@ async function processUser(db: any, userId: string) {
   for (const item of dueItems) {
     if (emailsSentToday >= dailyLimit) break;
 
+    const camp = campaigns[item.campaignId];
+    let attachmentData = undefined;
+    if (camp && camp.resumeId) {
+      const resumeSnap = await db.doc(`users/${userId}/resumes/${camp.resumeId}`).get();
+      if (resumeSnap.exists) {
+        const resume = resumeSnap.data();
+        if (resume.driveFileId) {
+          try {
+            const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files/${resume.driveFileId}?alt=media`, {
+              headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            if (driveRes.ok) {
+              const arrayBuffer = await driveRes.arrayBuffer();
+              const base64 = Buffer.from(arrayBuffer).toString("base64");
+              attachmentData = {
+                base64,
+                name: resume.fileName || "resume.pdf",
+                mimeType: resume.mimeType || "application/pdf"
+              };
+            } else {
+              logError(`Failed to download resume from Drive for user ${userId}: ${driveRes.statusText}`);
+            }
+          } catch (driveErr: any) {
+            logError(`Error downloading resume for user ${userId}: ${driveErr.message}`);
+          }
+        }
+      }
+    }
+
     const sendResult = await sendViaGmail(
       accessToken,
       item.recipientEmail,
       item.subject,
-      item.body
+      item.body,
+      attachmentData
     );
 
     if (sendResult.success) {

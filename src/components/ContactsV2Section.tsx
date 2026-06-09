@@ -22,17 +22,19 @@ import {
   ExternalLink,
   Filter,
 } from "lucide-react";
-import { Contact, ContactPriority } from "../types";
+import { Contact, ContactPriority, Campaign } from "../types";
 import { getISTDateString } from '../utils/date';
 
 interface ContactsV2SectionProps {
   contacts: Contact[];
+  campaigns: Campaign[];
   onAddContact: (contact: Contact) => Promise<void>;
   onDeleteContact: (id: string) => Promise<void>;
   onUpdateContact?: (id: string, updates: Partial<Contact>) => Promise<void>;
 }
 
 type FilterPriority = "All" | ContactPriority;
+type FilterStatus = "All" | "Unreached" | "Outreached";
 
 const PRIORITY_COLORS: Record<ContactPriority, string> = {
   High: "badge-high",
@@ -130,6 +132,7 @@ function importContactsFromCSV(raw: string): { contacts: Contact[]; errors: stri
 
 export default function ContactsV2Section({
   contacts,
+  campaigns,
   onAddContact,
   onDeleteContact,
   onUpdateContact,
@@ -140,8 +143,13 @@ export default function ContactsV2Section({
   const [importResult, setImportResult] = useState<{ count: number; errors: string[] } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<FilterPriority>("All");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("All");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showTemplate, setShowTemplate] = useState(false);
+
+  const usedContactIds = useMemo(() => {
+    return new Set(campaigns.flatMap((c) => c.contactIds));
+  }, [campaigns]);
 
   const handleImport = async () => {
     if (!csvInput.trim()) return;
@@ -181,6 +189,9 @@ export default function ContactsV2Section({
   const filteredContacts = useMemo(() => {
     return contacts.filter((c) => {
       if (filterPriority !== "All" && c.priority !== filterPriority) return false;
+      if (filterStatus === "Outreached" && !usedContactIds.has(c.id)) return false;
+      if (filterStatus === "Unreached" && usedContactIds.has(c.id)) return false;
+
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -191,7 +202,7 @@ export default function ContactsV2Section({
         (c.techStack || "").toLowerCase().includes(q)
       );
     });
-  }, [contacts, searchQuery, filterPriority]);
+  }, [contacts, searchQuery, filterPriority, filterStatus, usedContactIds]);
 
   const totalByPriority = useMemo(() => ({
     High: contacts.filter((c) => c.priority === "High").length,
@@ -392,6 +403,22 @@ export default function ContactsV2Section({
             </button>
           ))}
         </div>
+        <div className="flex items-center gap-1 border-l border-slate-200 pl-3 ml-1">
+          {(["All", "Unreached", "Outreached"] as FilterStatus[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              id={`filter-status-${s.toLowerCase()}`}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                filterStatus === s
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Contacts List */}
@@ -448,6 +475,11 @@ export default function ContactsV2Section({
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${PRIORITY_COLORS[c.priority]}`}>
                         {c.priority}
                       </span>
+                      {usedContactIds.has(c.id) && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          In Campaign
+                        </span>
+                      )}
                       {c.enriched && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full tag-green">
                           <Sparkles className="w-2.5 h-2.5 inline mr-0.5" />

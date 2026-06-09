@@ -1,4 +1,5 @@
-import { ChevronLeft, CheckCircle2, Loader2, Send, Clock, User as UserIcon, XCircle, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { ChevronLeft, CheckCircle2, Loader2, Send, Clock, User as UserIcon, XCircle, AlertCircle, Edit2, Save, X } from "lucide-react";
 import { Campaign, EmailQueueItem, Contact, ResumeProfile } from "../types";
 import { formatISTDate, formatISTTime } from "../utils/date";
 
@@ -7,6 +8,7 @@ interface CampaignDetailViewProps {
   emailQueue: EmailQueueItem[];
   contacts: Contact[];
   resumes: ResumeProfile[];
+  onUpdateEmailQueueItem: (id: string, updates: Partial<EmailQueueItem>) => Promise<void>;
   onBack: () => void;
 }
 
@@ -15,8 +17,32 @@ export default function CampaignDetailView({
   emailQueue,
   contacts,
   resumes,
+  onUpdateEmailQueueItem,
   onBack,
 }: CampaignDetailViewProps) {
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editSubject, setEditSubject] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const handleEditClick = (item: EmailQueueItem) => {
+    setEditingItemId(item.id);
+    setEditSubject(item.subject);
+    setEditBody(item.body);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    setSavingId(id);
+    try {
+      await onUpdateEmailQueueItem(id, { subject: editSubject, body: editBody });
+      setEditingItemId(null);
+    } catch (err) {
+      console.error("Failed to update email:", err);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const queueItems = emailQueue
     .filter((q) => q.campaignId === campaign.id)
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
@@ -95,15 +121,72 @@ export default function CampaignDetailView({
                       <span className="text-xs text-slate-400">•</span>
                       <span className="text-xs text-slate-500">{item.recipientEmail}</span>
                     </div>
-                    <details className="group mt-1">
-                      <summary className="text-sm font-medium text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors list-none flex items-center gap-2">
-                        <span className="line-clamp-1">{item.subject}</span>
-                        <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
-                      </summary>
-                      <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-600 whitespace-pre-wrap font-mono">
-                        {item.body}
+                    {editingItemId === item.id ? (
+                      <div className="mt-2 space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 w-full max-w-2xl">
+                        <div>
+                          <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide mb-1 block">Subject</label>
+                          <input
+                            type="text"
+                            value={editSubject}
+                            onChange={(e) => setEditSubject(e.target.value)}
+                            className="input-field text-sm font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-wide mb-1 block">Body</label>
+                          <textarea
+                            value={editBody}
+                            onChange={(e) => setEditBody(e.target.value)}
+                            rows={6}
+                            className="input-field text-xs font-mono resize-y"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 pt-2">
+                          <button
+                            onClick={() => handleSaveEdit(item.id)}
+                            disabled={savingId === item.id}
+                            className="btn-primary text-xs py-1.5 px-3"
+                          >
+                            {savingId === item.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Save className="w-3.5 h-3.5" />
+                            )}
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingItemId(null)}
+                            disabled={savingId === item.id}
+                            className="btn-secondary text-xs py-1.5 px-3"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </details>
+                    ) : (
+                      <details className="group mt-1" open={item.status === "Pending"}>
+                        <summary className="text-sm font-medium text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors list-none flex items-center gap-2">
+                          <span className="line-clamp-1">{item.subject}</span>
+                          <span className="text-[10px] text-slate-400 group-open:rotate-180 transition-transform">▼</span>
+                          {item.status === "Pending" && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleEditClick(item);
+                              }}
+                              className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600"
+                              title="Edit email"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </summary>
+                        <div className="mt-3 p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-600 whitespace-pre-wrap font-mono">
+                          {item.body}
+                        </div>
+                      </details>
+                    )}
                     <div className="flex items-center gap-2 mt-3">
                       <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${getStatusColor(item.status)}`}>
                         {getStatusIcon(item.status)}

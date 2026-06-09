@@ -131,6 +131,7 @@ export default function App() {
             {activeSection === "contacts" && (
               <ContactsV2Section
                 contacts={store.contacts}
+                campaigns={store.campaigns}
                 onAddContact={store.handleAddContact}
                 onDeleteContact={store.handleDeleteContact}
                 onUpdateContact={store.handleUpdateContact}
@@ -154,6 +155,7 @@ export default function App() {
                 onScoreComplete={handleScoreComplete}
                 onEmailGenerated={handleEmailGenerated}
                 onQueueItemCreated={store.handleAddEmailQueueItem}
+                onUpdateEmailQueueItem={store.handleUpdateEmailQueueItem}
                 onApplicationUpsert={store.handleUpsertApplication}
                 onConnectGmail={handleConnectGmail}
               />

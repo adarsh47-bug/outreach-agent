@@ -79,6 +79,8 @@ EMAIL REQUIREMENTS (strict):
 - Must mention the company name (${companyName || "company"}) naturally
 - Must reference a specific project or achievement from the candidate's background
 - Must mention 1–2 matching technologies from their stack
+- Must explicitly focus on exploring job opportunities, open roles, and how the candidate can contribute to their engineering team
+- Must explicitly state that the candidate's resume is attached for reference (do not use the word "linked" or "link")
 - Must reference the role or the reason for outreach
 - Must end with a clear, low-pressure CTA (e.g., "Would you be open to a 15-minute call?")
 - Length: under 130 words total

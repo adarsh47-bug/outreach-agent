@@ -43,6 +43,7 @@ interface CampaignsSectionProps {
   onScoreComplete: (contactId: string, score: number) => Promise<void>;
   onEmailGenerated: (contactId: string, subject: string, body: string) => Promise<void>;
   onQueueItemCreated: (item: EmailQueueItem) => Promise<void>;
+  onUpdateEmailQueueItem: (id: string, updates: Partial<EmailQueueItem>) => Promise<void>;
   onApplicationUpsert: (app: Partial<Application> & { contactId: string }) => Promise<string>;
   onConnectGmail: () => void;
 }
@@ -102,6 +103,7 @@ export default function CampaignsSection({
   onScoreComplete,
   onEmailGenerated,
   onQueueItemCreated,
+  onUpdateEmailQueueItem,
   onApplicationUpsert,
   onConnectGmail,
 }: CampaignsSectionProps) {
@@ -116,6 +118,7 @@ export default function CampaignsSection({
   const [dailyLimit, setDailyLimit] = useState(settings?.dailyLimit || 10);
   const [followUpEnabled, setFollowUpEnabled] = useState(true);
   const [contactFilter, setContactFilter] = useState("");
+  const [hideOutreached, setHideOutreached] = useState(false);
 
   // Per-campaign scheduler overrides
   const [showScheduler, setShowScheduler] = useState(false);
@@ -130,14 +133,18 @@ export default function CampaignsSection({
   const activeCampaign = useMemo(() => campaigns.find(c => c.id === activeLaunchId), [campaigns, activeLaunchId]);
   const launchProgress = activeCampaign?.launchProgress || localLaunchProgress;
 
+  const usedContactIds = useMemo(() => {
+    return new Set(campaigns.flatMap((c) => c.contactIds));
+  }, [campaigns]);
+
   const filteredContactsForBuilder = useMemo(() => {
     const q = contactFilter.toLowerCase();
-    return contacts.filter((c) =>
-      !q ||
-      c.companyName.toLowerCase().includes(q) ||
-      (c.role || "").toLowerCase().includes(q)
-    );
-  }, [contacts, contactFilter]);
+    return contacts.filter((c) => {
+      if (hideOutreached && usedContactIds.has(c.id)) return false;
+      if (q && !c.companyName.toLowerCase().includes(q) && !(c.role || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [contacts, contactFilter, hideOutreached, usedContactIds]);
 
   const handleCreate = async () => {
     if (!campaignName.trim() || selectedContactIds.length === 0 || !selectedResumeId) return;
@@ -234,6 +241,7 @@ export default function CampaignsSection({
           emailQueue={emailQueue}
           contacts={contacts}
           resumes={resumes}
+          onUpdateEmailQueueItem={onUpdateEmailQueueItem}
           onBack={() => setViewingCampaignId(null)}
         />
       );
@@ -330,6 +338,15 @@ export default function CampaignsSection({
               <div className="flex items-center justify-between mb-1">
                 <label className="label mb-0">Select Contacts</label>
                 <div className="flex gap-2 text-xs">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 mr-2">
+                    <input
+                      type="checkbox"
+                      checked={hideOutreached}
+                      onChange={(e) => setHideOutreached(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3 h-3"
+                    />
+                    Hide Outreached
+                  </label>
                   <button
                     onClick={() => setSelectedContactIds(contacts.map((c) => c.id))}
                     className="text-indigo-600 hover:underline font-semibold"
@@ -377,8 +394,13 @@ export default function CampaignsSection({
                         className="accent-indigo-600"
                       />
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-semibold text-slate-700 block truncate">
+                        <span className="text-sm font-semibold text-slate-700 block truncate flex items-center gap-2">
                           {c.companyName}
+                          {usedContactIds.has(c.id) && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 border border-slate-200">
+                              In Campaign
+                            </span>
+                          )}
                         </span>
                         <span className="text-xs text-slate-400 truncate">{c.role} · {c.priority}</span>
                       </div>

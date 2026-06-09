@@ -34,7 +34,7 @@ export default function ResumeSection({
   const [attachmentFile, setAttachmentFile] = useState<{ name: string; base64: string; mimeType: string } | null>(null);
   const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
 
-  const handleDriveUploadAndLink = async (fileObj: { name: string; base64: string; mimeType: string }): Promise<string | null> => {
+  const handleDriveUploadAndLink = async (fileObj: { name: string; base64: string; mimeType: string }): Promise<{ webViewLink: string; id: string } | null> => {
     if (!googleToken) return null;
 
     setIsUploadingToDrive(true);
@@ -95,9 +95,9 @@ export default function ResumeSection({
       
       if (detailsRes.ok) {
         const detailsData = await detailsRes.json();
-        return detailsData.webViewLink;
+        return { webViewLink: detailsData.webViewLink, id: fileId };
       }
-      return `https://drive.google.com/file/d/${fileId}/view`;
+      return { webViewLink: `https://drive.google.com/file/d/${fileId}/view`, id: fileId };
     } catch (err: any) {
       console.error(err);
       setFeedback("Failed Google Drive sync: " + err.message);
@@ -115,6 +115,8 @@ export default function ResumeSection({
 
     setIsParsing(true);
     let driveLink: string | null | undefined = undefined;
+    let driveFileId: string | null | undefined = undefined;
+    let mimeType: string | null | undefined = undefined;
 
     if (attachmentFile) {
       if (!googleToken) {
@@ -122,11 +124,14 @@ export default function ResumeSection({
         setIsParsing(false);
         return;
       }
-      driveLink = await handleDriveUploadAndLink(attachmentFile);
-      if (!driveLink) {
+      const driveResult = await handleDriveUploadAndLink(attachmentFile);
+      if (!driveResult) {
         setIsParsing(false);
         return; // handleDriveUploadAndLink handles setting the error feedback
       }
+      driveLink = driveResult.webViewLink;
+      driveFileId = driveResult.id;
+      mimeType = attachmentFile.mimeType;
     }
 
     setFeedback("Invoking Gemini 3.5 Flash server-side parser...");
@@ -152,6 +157,8 @@ export default function ResumeSection({
         summary: structuredResult.summary || "Extracted Candidate Profile.",
         skills: structuredResult.skills || [],
         driveLink: driveLink || undefined,
+        driveFileId: driveFileId || undefined,
+        mimeType: mimeType || undefined,
         projects: structuredResult.projects || [],
         experience: structuredResult.experience || [],
         achievements: structuredResult.achievements || [],

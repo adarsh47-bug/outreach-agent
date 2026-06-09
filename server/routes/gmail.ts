@@ -92,7 +92,7 @@ router.post("/api/gmail/send", async (req, res) => {
 /**
  * Build base64url-encoded RFC 2822 email content.
  */
-function buildRawEmail(
+export function buildRawEmail(
   to: string,
   subject: string,
   body: string,

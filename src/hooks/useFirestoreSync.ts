@@ -172,6 +172,8 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
             cloudExperience: data.cloudExperience || [],
             aiExperience: data.aiExperience || [],
             driveLink: data.driveLink,
+            driveFileId: data.driveFileId,
+            mimeType: data.mimeType,
           });
         });
         setResumes(list);
@@ -472,6 +474,8 @@ export function useFirestoreSync(user: User | null): UseFirestoreSyncReturn {
         cloudExperience: res.cloudExperience || [],
         aiExperience: res.aiExperience || [],
         driveLink: res.driveLink || null,
+        driveFileId: res.driveFileId || null,
+        mimeType: res.mimeType || null,
         uploadedAt: serverTimestamp(),
       }).catch((err) =>
         handleFirestoreError(err, OperationType.CREATE, `users/${user.uid}/resumes/${res.id}`)

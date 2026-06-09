@@ -24,6 +24,8 @@ export interface ResumeProfile {
   summary: string;
   skills: string[];
   driveLink?: string;
+  driveFileId?: string;
+  mimeType?: string;
   // Extended fields from Gemini analysis
   projects?: string[];
   experience?: string[];
